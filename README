@@ -1,0 +1,24 @@
+This is the cryptkeyper package.
+The current version is 0.0.0.
+
+The package is currently very much work in progress. At the moment,
+functionality is limited to one testcase that manages to verify that
+the correct AES key is generated when a KeePass file is parsed.
+
+The weakest link in a password manager is, by design, the master password,
+which could be stolen by using a keylogger. Other weak points are that many 
+times all passwords are exposed in memory when the user opens the password 
+database, and that there is little possibility to revoke the password
+database if it is compromised, other than manually changing all passwords.
+
+The purpose of cryptkeyper is to make a system that is more resilient to
+attacks such as keyloggers and attempts at password database theft.
+
+More details will be added later, but feel free to contact me 
+(jonas.hagmar (at) gmail.com) if you feel that this is an interesting
+project.
+
+Installation instructions can be found in the INSTALL file.
+
+Copying conditions can be found in the COPYING file.
+
