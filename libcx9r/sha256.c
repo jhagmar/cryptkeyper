@@ -2,7 +2,7 @@
  *
  *     Copyright (C) 2013 Jonas Hagmar (jonas.hagmar@gmail.com)
  *
- * This file is part of Cryptkeyper.
+ * This file is part of cryptkeyper.
  *
  * Cryptkeyper is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Cryptkeyper. If not, see <http://www.gnu.org/licenses/>.
+ * along with cryptkeyper. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "sha256.h"
