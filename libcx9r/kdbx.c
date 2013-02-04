@@ -356,45 +356,45 @@ static void ctx_free(ckpr_ctx_impl *ctx)
 static void generate_key(ckpr_ctx_impl *ctx, char *passphrase)
 {
   size_t length;
-  uint8_t hash[SHA256_HASH_LENGTH];
-  aes256_ecb_ctx aes_ctx;
+  uint8_t hash[CX9R_SHA256_HASH_LENGTH];
+  cx9r_aes256_ecb_ctx aes_ctx;
   uint64_t i;
   sha256_ctx sha_ctx;
   
   length = strlen(passphrase);
-  sha256_hash_buffer(hash, passphrase, length);
-  sha256_hash_buffer(hash, hash, SHA256_HASH_LENGTH);
+  cx9r_sha256_hash_buffer(hash, passphrase, length);
+  cx9r_sha256_hash_buffer(hash, hash, CX9R_SHA256_HASH_LENGTH);
   
-  aes256_ecb_init(&aes_ctx, ctx->transform_seed);
+  cx9r_aes256_ecb_init(&aes_ctx, ctx->transform_seed);
   for (i = 0; i < ctx->n_transform_rounds; i++)
   {
-    aes256_ecb_encrypt(&aes_ctx, hash);
-    aes256_ecb_encrypt(&aes_ctx, &hash[AES256_BLOCK_LENGTH]);
+    cx9r_aes256_ecb_encrypt(&aes_ctx, hash);
+    cx9r_aes256_ecb_encrypt(&aes_ctx, &hash[CX9R_AES256_BLOCK_LENGTH]);
   }
-  aes256_ecb_close(&aes_ctx);
+  cx9r_aes256_ecb_close(&aes_ctx);
   
-  sha256_hash_buffer(hash, hash, SHA256_HASH_LENGTH);
+  cx9r_sha256_hash_buffer(hash, hash, CX9R_SHA256_HASH_LENGTH);
 
-  sha256_init(&sha_ctx);
-  sha256_process(&sha_ctx, ctx->master_seed, KDBX_MASTER_SEED_LENGTH);
-  sha256_process(&sha_ctx, hash, SHA256_HASH_LENGTH);
-  sha256_close(&sha_ctx, hash);
+  cx9r_sha256_init(&sha_ctx);
+  cx9r_sha256_process(&sha_ctx, ctx->master_seed, KDBX_MASTER_SEED_LENGTH);
+  cx9r_sha256_process(&sha_ctx, hash, CX9R_SHA256_HASH_LENGTH);
+  cx9r_sha256_close(&sha_ctx, hash);
 
-  dbg(hash, SHA256_HASH_LENGTH);
-  ctx->key = malloc(AES256_KEY_LENGTH);
-  memcpy(ctx->key, hash, AES256_KEY_LENGTH);
+  dbg(hash, CX9R_SHA256_HASH_LENGTH);
+  ctx->key = malloc(CX9R_AES256_KEY_LENGTH);
+  memcpy(ctx->key, hash, CX9R_AES256_KEY_LENGTH);
 }
 
 static void verify_start_bytes(FILE *f, ckpr_ctx_impl *ctx)
 {
   uint8_t start_bytes[KDBX_STREAM_START_BYTES_LENGTH];
-  aes256_cbc_ctx aes_ctx;
+  cx9r_aes256_cbc_ctx aes_ctx;
 
   fread(start_bytes, 1, KDBX_STREAM_START_BYTES_LENGTH, f);
   
-  aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv);
-  aes256_cbc_decrypt(&aes_ctx, start_bytes, KDBX_STREAM_START_BYTES_LENGTH);
-  aes256_cbc_close(&aes_ctx);
+  cx9r_aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv);
+  cx9r_aes256_cbc_decrypt(&aes_ctx, start_bytes, KDBX_STREAM_START_BYTES_LENGTH);
+  cx9r_aes256_cbc_close(&aes_ctx);
 
   if (memcmp(start_bytes, ctx->stream_start_bytes, KDBX_STREAM_START_BYTES_LENGTH) == 0)
   {
