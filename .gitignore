@@ -1,0 +1,14 @@
+Makefile
+autom4te.cache
+.deps
+.libs
+check/kdbx_read_test
+config.h
+config.log
+config.status
+*.la
+*.lo
+*.o
+libtool
+src/keypr
+stamp-h1
