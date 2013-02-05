@@ -54,7 +54,7 @@
 
 // bail out by goto to a tag if criterion is true, setting a return
 // variable
-#define CHECK(crit, err_var, err_val, tag) do { if (crit) {err_var = err_val; goto tag;} } while(0)
+#define CHECK(crit, err_var, err_val, tag) do { if (!(crit)) {err_var = err_val; goto tag;} } while(0)
 
 // context implementation
 typedef struct {
@@ -117,11 +117,11 @@ static cx9r_err kdbx_read_magic(FILE *f)
   cx9r_err err = CX9R_OK;
 
   // read magic bytes
-  CHECK((fread(magic, 1, KDBX_MAGIC_LENGTH, f) < KDBX_MAGIC_LENGTH),
+  CHECK((fread(magic, 1, KDBX_MAGIC_LENGTH, f) == KDBX_MAGIC_LENGTH),
        err, CX9R_FILE_READ_ERR, kdbx_magic_bail);
 
   // compare magic bytes to expected
-  CHECK((memcmp(magic, kdbx_magic, KDBX_MAGIC_LENGTH) != 0),
+  CHECK((memcmp(magic, kdbx_magic, KDBX_MAGIC_LENGTH) == 0),
        err, CX9R_BAD_MAGIC, kdbx_magic_bail);
 
  kdbx_magic_bail:
@@ -144,11 +144,11 @@ static cx9r_err kdbx_read_version(FILE *f)
   cx9r_err err = CX9R_OK;
 
   // read version
-  CHECK((fread(version, 1, KDBX_VERSION_LENGTH, f) < KDBX_VERSION_LENGTH),
+  CHECK((fread(version, 1, KDBX_VERSION_LENGTH, f) == KDBX_VERSION_LENGTH),
   	err, CX9R_FILE_READ_ERR, kdbx_read_version_bail);
 
   // compare version to expected
-  CHECK((memcmp(version, kdbx_version, KDBX_VERSION_LENGTH) != 0),
+  CHECK((memcmp(version, kdbx_version, KDBX_VERSION_LENGTH) == 0),
 	err, CX9R_UNSUPPORTED_VERSION, kdbx_read_version_bail);
 
  kdbx_read_version_bail:
@@ -225,17 +225,17 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
   while (id)
   {
     // read id
-    CHECK((fread(&id, 1, sizeof(id), f) < sizeof(id)),
+    CHECK((fread(&id, 1, sizeof(id), f) == sizeof(id)),
 	err, CX9R_FILE_READ_ERR, kdbx_read_header_bail);
 
     // read size
-    CHECK((fread(&size, 1, sizeof(size), f) < sizeof(size)),
+    CHECK((fread(&size, 1, sizeof(size), f) == sizeof(size)),
 	err, CX9R_FILE_READ_ERR, kdbx_read_header_bail);
 
-    CHECK(((data = (uint8_t*)malloc(size)) == NULL),
+    CHECK(((data = (uint8_t*)malloc(size)) != NULL),
 	err, CX9R_MEM_ALLOC_ERR, kdbx_read_header_bail);
 
-    CHECK((fread(data, 1, size, f) < size),
+    CHECK((fread(data, 1, size, f) == size),
       err, CX9R_FILE_READ_ERR, kdbx_read_header_cleanup_data);
 
     printf("id: %d, size: %d\n", id, size);
@@ -255,15 +255,15 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
         DEALLOC(data);
         break;
       case ID_CIPHER:
-        CHECK((!handle_cipher_field(size, data)),
+        CHECK((handle_cipher_field(size, data)),
 	  err, CX9R_UNKNOWN_CIPHER, kdbx_read_header_cleanup_data);
         break;
       case ID_COMPRESSION:
-        CHECK((!handle_compression_field(size, data)),
+        CHECK((handle_compression_field(size, data)),
           err, CX9R_UNKNOWN_COMPRESSION, kdbx_read_header_cleanup_data);
 	break;
       case ID_MASTER_SEED:
-        CHECK((!handle_field_w_size(&ctx->master_seed, KDBX_MASTER_SEED_LENGTH, size, data)),
+        CHECK((handle_field_w_size(&ctx->master_seed, KDBX_MASTER_SEED_LENGTH, size, data)),
           err, CX9R_WRONG_MASTER_SEED_LENGTH, kdbx_read_header_cleanup_data);
         break;
       case ID_TRANSFORM_SEED:
@@ -281,7 +281,7 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
         DEALLOC(data);
 	break;
       case ID_IV:
-        CHECK((!handle_field_w_size(&ctx->iv, KDBX_IV_LENGTH, size, data)),
+        CHECK((handle_field_w_size(&ctx->iv, KDBX_IV_LENGTH, size, data)),
           err, CX9R_WRONG_IV_LENGTH, kdbx_read_header_cleanup_data);
         break;
       case ID_PROTECTED_STREAM_KEY:
@@ -290,7 +290,7 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
         ctx->protected_stream_key = data;
         break;
       case ID_STREAM_START_BYTES:
-        CHECK((!handle_field_w_size(&ctx->stream_start_bytes, KDBX_STREAM_START_BYTES_LENGTH, size, data)),
+        CHECK((handle_field_w_size(&ctx->stream_start_bytes, KDBX_STREAM_START_BYTES_LENGTH, size, data)),
           err, CX9R_WRONG_STREAM_START_BYTES_LENGTH, kdbx_read_header_cleanup_data);
 	break;
       case ID_INNER_RANDOM_STREAM_ID:
@@ -303,7 +303,7 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
         DEALLOC(data);
 	break;
       default:
-        CHECK((1), err, CX9R_BAD_HEADER_FIELD_ID, kdbx_read_header_cleanup_data);
+        CHECK((0), err, CX9R_BAD_HEADER_FIELD_ID, kdbx_read_header_cleanup_data);
     }
 
   }
