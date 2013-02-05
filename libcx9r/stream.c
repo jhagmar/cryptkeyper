@@ -19,6 +19,10 @@
 
 #include "stream.h"
 #include "util.h"
+#include <stdint.h>
+
+#define BUF_FILE_BUF_LENGTH (1 << 16)
+#define MIN(x,y) ((x < y) ? x : y)
 
 // stream read
 size_t cx9r_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t *stream)
@@ -28,12 +32,46 @@ size_t cx9r_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t *stream)
 
 typedef struct {
   FILE *file;
+  uint8_t buffer[BUF_FILE_BUF_LENGTH];
+  size_t total;
+  size_t pos;
 } buf_file_data_t;
 
 // read from buffered file stream
 static size_t buf_file_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t *stream)
 {
-  return 0;
+  buf_file_data_t *data;
+  FILE *file;
+  size_t total;
+  size_t pos;
+  size_t n;
+  uint8_t *out;
+
+  data = (buf_file_data_t*)stream->data;
+  out = (uint8_t*)ptr;
+  file = data->file;
+  total = size * nmemb;
+  pos = 0;
+
+  while (pos < total)
+  {
+	  if (data->pos == data->total)
+	  {
+		  data->pos = 0;
+		  if ((data->total = fread(data->buffer, 1, BUF_FILE_BUF_LENGTH, file)) == 0)
+		  {
+			  break;
+		  }
+	  }
+
+	  n = MIN(data->total - data->pos, total - pos);
+
+	  memcpy(out + pos, data->buffer + data->pos, n);
+	  pos += n;
+	  data->pos += n;
+  }
+
+  return pos;
 }
 
 // open buffered file stream
@@ -49,6 +87,8 @@ cx9r_stream_t *cx9r_buf_file_sopen(FILE *file)
       data, data, cx9r_buf_file_sopen_dealloc_stream);
 
   data->file = file;
+  data->total = 0;
+  data->pos = 0;
 
   stream->sread = buf_file_sread;
 
