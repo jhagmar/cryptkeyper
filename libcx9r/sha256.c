@@ -20,17 +20,17 @@
 #include "sha256.h"
 #include <string.h>
 
-void cx9r_sha256_init(sha256_ctx *ctx)
+void cx9r_sha256_init(cx9r_sha256_ctx *ctx)
 {
   gcry_md_open(ctx, GCRY_MD_SHA256, 0);
 }
 
-void cx9r_sha256_process(sha256_ctx *ctx, uint8_t *buffer, size_t length)
+void cx9r_sha256_process(cx9r_sha256_ctx *ctx, uint8_t *buffer, size_t length)
 {
   gcry_md_write(*ctx, buffer, length);
 }
 
-void cx9r_sha256_close(sha256_ctx *ctx, uint8_t *hash)
+void cx9r_sha256_close(cx9r_sha256_ctx *ctx, uint8_t *hash)
 {
   memcpy(hash, gcry_md_read(*ctx, GCRY_MD_SHA256), CX9R_SHA256_HASH_LENGTH);
   gcry_md_close(*ctx);

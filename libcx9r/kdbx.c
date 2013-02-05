@@ -104,7 +104,7 @@ static uint32_t lsb_to_uint32(uint8_t *b)
 }
 
 // read verify the kdbx magic bytes from a file
-static ckpr_err kdbx_read_magic(FILE *f)
+static cx9r_err kdbx_read_magic(FILE *f)
 {
   uint8_t const kdbx_magic[KDBX_MAGIC_LENGTH] =
   {
@@ -114,15 +114,15 @@ static ckpr_err kdbx_read_magic(FILE *f)
   uint8_t magic[KDBX_MAGIC_LENGTH];
 
   // default return value
-  ckpr_err err = CKPR_OK;
+  cx9r_err err = CX9R_OK;
 
   // read magic bytes
   CHECK((fread(magic, 1, KDBX_MAGIC_LENGTH, f) < KDBX_MAGIC_LENGTH),
-       err, CKPR_FILE_READ_ERR, kdbx_magic_bail);
+       err, CX9R_FILE_READ_ERR, kdbx_magic_bail);
 
   // compare magic bytes to expected
   CHECK((memcmp(magic, kdbx_magic, KDBX_MAGIC_LENGTH) != 0),
-       err, CKPR_BAD_MAGIC, kdbx_magic_bail);
+       err, CX9R_BAD_MAGIC, kdbx_magic_bail);
 
  kdbx_magic_bail:
 
@@ -130,7 +130,7 @@ static ckpr_err kdbx_read_magic(FILE *f)
 }
 
 // read file format version from kdbx file
-static ckpr_err kdbx_read_version(FILE *f)
+static cx9r_err kdbx_read_version(FILE *f)
 {
   // version 2.20.1
   uint8_t const kdbx_version[KDBX_VERSION_LENGTH] =
@@ -141,15 +141,15 @@ static ckpr_err kdbx_read_version(FILE *f)
   uint8_t version[KDBX_VERSION_LENGTH];
 
   // default return value
-  ckpr_err err = CKPR_OK;
+  cx9r_err err = CX9R_OK;
 
   // read version
   CHECK((fread(version, 1, KDBX_VERSION_LENGTH, f) < KDBX_VERSION_LENGTH),
-  	err, CKPR_FILE_READ_ERR, kdbx_read_version_bail);
+  	err, CX9R_FILE_READ_ERR, kdbx_read_version_bail);
 
   // compare version to expected
   CHECK((memcmp(version, kdbx_version, KDBX_VERSION_LENGTH) != 0),
-	err, CKPR_UNSUPPORTED_VERSION, kdbx_read_version_bail);
+	err, CX9R_UNSUPPORTED_VERSION, kdbx_read_version_bail);
 
  kdbx_read_version_bail:
 
@@ -215,28 +215,28 @@ static int handle_field_w_size(uint8_t **slot, uint16_t expected_size,
 
 
 // read the kdbx file header
-static ckpr_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
+static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
 {
   uint8_t id = 1;		// header field id
   uint16_t size;		// header field size
   uint8_t *data;		// header field data
-  ckpr_err err = CKPR_OK;	// return value
+  cx9r_err err = CX9R_OK;	// return value
 
   while (id)
   {
     // read id
     CHECK((fread(&id, 1, sizeof(id), f) < sizeof(id)),
-	err, CKPR_FILE_READ_ERR, kdbx_read_header_bail);
+	err, CX9R_FILE_READ_ERR, kdbx_read_header_bail);
 
     // read size
     CHECK((fread(&size, 1, sizeof(size), f) < sizeof(size)),
-	err, CKPR_FILE_READ_ERR, kdbx_read_header_bail);
+	err, CX9R_FILE_READ_ERR, kdbx_read_header_bail);
 
     CHECK(((data = (uint8_t*)malloc(size)) == NULL),
-	err, CKPR_MEM_ALLOC_ERR, kdbx_read_header_bail);
+	err, CX9R_MEM_ALLOC_ERR, kdbx_read_header_bail);
 
     CHECK((fread(data, 1, size, f) < size),
-      err, CKPR_FILE_READ_ERR, kdbx_read_header_cleanup_data);
+      err, CX9R_FILE_READ_ERR, kdbx_read_header_cleanup_data);
 
     printf("id: %d, size: %d\n", id, size);
     dbg(data, size);
@@ -256,15 +256,15 @@ static ckpr_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
         break;
       case ID_CIPHER:
         CHECK((!handle_cipher_field(size, data)),
-	  err, CKPR_UNKNOWN_CIPHER, kdbx_read_header_cleanup_data);
+	  err, CX9R_UNKNOWN_CIPHER, kdbx_read_header_cleanup_data);
         break;
       case ID_COMPRESSION:
         CHECK((!handle_compression_field(size, data)),
-          err, CKPR_UNKNOWN_COMPRESSION, kdbx_read_header_cleanup_data);
+          err, CX9R_UNKNOWN_COMPRESSION, kdbx_read_header_cleanup_data);
 	break;
       case ID_MASTER_SEED:
         CHECK((!handle_field_w_size(&ctx->master_seed, KDBX_MASTER_SEED_LENGTH, size, data)),
-          err, CKPR_WRONG_MASTER_SEED_LENGTH, kdbx_read_header_cleanup_data);
+          err, CX9R_WRONG_MASTER_SEED_LENGTH, kdbx_read_header_cleanup_data);
         break;
       case ID_TRANSFORM_SEED:
         // KeePass writes 32 bytes, but does not check the length on reading
@@ -275,14 +275,14 @@ static ckpr_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
 	if (size != KDBX_N_TRANSFORM_ROUNDS_LENGTH)
         {
           DEALLOC(data);
-          return CKPR_WRONG_N_TRANSFORM_ROUNDS_LENGTH;
+          return CX9R_WRONG_N_TRANSFORM_ROUNDS_LENGTH;
         }
         ctx->n_transform_rounds = lsb_to_uint64(data);
         DEALLOC(data);
 	break;
       case ID_IV:
         CHECK((!handle_field_w_size(&ctx->iv, KDBX_IV_LENGTH, size, data)),
-          err, CKPR_WRONG_IV_LENGTH, kdbx_read_header_cleanup_data);
+          err, CX9R_WRONG_IV_LENGTH, kdbx_read_header_cleanup_data);
         break;
       case ID_PROTECTED_STREAM_KEY:
         // KeePass writes 32 bytes, but does not check the length on reading
@@ -291,19 +291,19 @@ static ckpr_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx)
         break;
       case ID_STREAM_START_BYTES:
         CHECK((!handle_field_w_size(&ctx->stream_start_bytes, KDBX_STREAM_START_BYTES_LENGTH, size, data)),
-          err, CKPR_WRONG_STREAM_START_BYTES_LENGTH, kdbx_read_header_cleanup_data);
+          err, CX9R_WRONG_STREAM_START_BYTES_LENGTH, kdbx_read_header_cleanup_data);
 	break;
       case ID_INNER_RANDOM_STREAM_ID:
 	if (size != KDBX_INNER_RANDOM_STREAM_ID_LENGTH)
         {
           DEALLOC(data);
-          return CKPR_WRONG_INNER_RANDOM_STREAM_ID_LENGTH;
+          return CX9R_WRONG_INNER_RANDOM_STREAM_ID_LENGTH;
         }
         ctx->inner_random_stream_id = lsb_to_uint32(data);
         DEALLOC(data);
 	break;
       default:
-        CHECK((1), err, CKPR_BAD_HEADER_FIELD_ID, kdbx_read_header_cleanup_data);
+        CHECK((1), err, CX9R_BAD_HEADER_FIELD_ID, kdbx_read_header_cleanup_data);
     }
 
   }
@@ -359,7 +359,7 @@ static void generate_key(ckpr_ctx_impl *ctx, char *passphrase)
   uint8_t hash[CX9R_SHA256_HASH_LENGTH];
   cx9r_aes256_ecb_ctx aes_ctx;
   uint64_t i;
-  sha256_ctx sha_ctx;
+  cx9r_sha256_ctx sha_ctx;
   
   length = strlen(passphrase);
   cx9r_sha256_hash_buffer(hash, passphrase, length);
@@ -403,37 +403,37 @@ static void verify_start_bytes(FILE *f, ckpr_ctx_impl *ctx)
    
 }
 
-ckpr_err ckpr_init()
+cx9r_err cx9r_init()
 {
   if (!gcry_check_version ("1.2.0"))
   {
     //fputs("libgcrypt version mismatch\n", stderr);
-    return CKPR_INIT_FAILURE;
+    return CX9R_INIT_FAILURE;
   }
-  return CKPR_OK;
+  return CX9R_OK;
 }
 
-ckpr_err ckpr_kdbx_read(FILE *f, char *passphrase)
+cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase)
 {
-  ckpr_err err;
+  cx9r_err err;
   ckpr_ctx_impl *ctx;
 
-  if (err = kdbx_read_magic(f) != CKPR_OK)
+  if (err = kdbx_read_magic(f) != CX9R_OK)
   {
     return err;
   }
 
-  if (err = kdbx_read_version(f) != CKPR_OK)
+  if (err = kdbx_read_version(f) != CX9R_OK)
   {
     return err;
   }
 
   if ((ctx = ctx_alloc()) == NULL)
   {
-    return CKPR_MEM_ALLOC_ERR;
+    return CX9R_MEM_ALLOC_ERR;
   }
 
-  if (err = kdbx_read_header(f, ctx) != CKPR_OK)
+  if (err = kdbx_read_header(f, ctx) != CX9R_OK)
   {
     ctx_free(ctx);
     return err;
@@ -443,6 +443,6 @@ ckpr_err ckpr_kdbx_read(FILE *f, char *passphrase)
   verify_start_bytes(f, ctx);
 
   ctx_free(ctx);
-  return CKPR_OK;
+  return CX9R_OK;
 }
 

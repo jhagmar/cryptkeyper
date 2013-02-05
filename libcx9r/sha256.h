@@ -28,16 +28,16 @@
 
 #ifdef GCRYPT_WITH_SHA256
 #   include <gcrypt.h>
-    typedef gcry_md_hd_t sha256_ctx;
+    typedef gcry_md_hd_t cx9r_sha256_ctx;
 #else
 #error No libgcrypt support for sha256
 #endif
 
 #include <stdint.h>
 
-void cx9r_sha256_init(sha256_ctx *ctx);
-void cx9r_sha256_process(sha256_ctx *ctx, uint8_t *buffer, size_t length);
-void cx9r_sha256_close(sha256_ctx *ctx, uint8_t *hash);
+void cx9r_sha256_init(cx9r_sha256_ctx *ctx);
+void cx9r_sha256_process(cx9r_sha256_ctx *ctx, uint8_t *buffer, size_t length);
+void cx9r_sha256_close(cx9r_sha256_ctx *ctx, uint8_t *hash);
 void cx9r_sha256_hash_buffer(uint8_t *hash, uint8_t *buffer, size_t length);
 
 #endif

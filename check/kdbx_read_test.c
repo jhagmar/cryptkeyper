@@ -23,15 +23,15 @@
 int main(void)
 {
   FILE *f;
-  ckpr_err err;
+  cx9r_err err;
 
   f = fopen(TESTFILE, "r");
   if (f == NULL) return 1;
 
-  if ((err = ckpr_init()) != CKPR_OK)
+  if ((err = cx9r_init()) != CX9R_OK)
     goto cleanup;
 
-  if ((err = ckpr_kdbx_read(f, "qwertyuiopqwertyuiop")) != CKPR_OK)
+  if ((err = cx9r_kdbx_read(f, "qwertyuiopqwertyuiop")) != CX9R_OK)
     goto cleanup;
 
  cleanup:
