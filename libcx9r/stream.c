@@ -18,6 +18,7 @@
  */
 
 #include "stream.h"
+#include "util.h"
 
 // stream read
 size_t cx9r_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t *stream)
@@ -39,14 +40,26 @@ static size_t buf_file_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t
 cx9r_stream_t *cx9r_buf_file_sopen(FILE *file)
 {
   cx9r_stream_t *stream;
+  buf_file_data_t *data;
 
-  stream = (cx9r_stream_t*)malloc(sizeof(cx9r_stream_t));
-  if (stream == NULL) return NULL;
+  CHECK(((stream = malloc(sizeof(cx9r_stream_t))) != NULL),
+      stream, stream, cx9r_buf_file_sopen_bail);
 
-  stream->data = malloc(sizeof(buf_file_data_t));
-  ((buf_file_data_t*)stream->data)->file = file;
+  CHECK(((stream->data = data = malloc(sizeof(buf_file_data_t))) != NULL),
+      data, data, cx9r_buf_file_sopen_dealloc_stream);
+
+  data->file = file;
 
   stream->sread = buf_file_sread;
+
+  goto cx9r_buf_file_sopen_bail;
+
+cx9r_buf_file_sopen_dealloc_stream:
+
+  free(stream);
+  stream = NULL;
+
+cx9r_buf_file_sopen_bail:
 
   return stream;
 }
