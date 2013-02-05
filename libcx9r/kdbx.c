@@ -20,6 +20,7 @@
 #include <cx9r.h>
 #include "sha256.h"
 #include "aes256.h"
+#include "util.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
