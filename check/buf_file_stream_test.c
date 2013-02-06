@@ -51,7 +51,7 @@ int main(void) {
 		goto bail;
 	}
 
-	printf("reading back testfile through buffered stream\n");
+	printf("reading back testfile through buffered stream...\n");
 
 	f = fopen(TESTFILE, "r");
 	if (f == NULL)
@@ -78,6 +78,20 @@ int main(void) {
 		}
 	}
 
+	printf("testing end of file...\n");
+
+	//try reading beyond end of file
+	if (cx9r_sread(&j, sizeof(j), 1, stream) != 0)
+	{
+		printf("could read past end of file\n");
+		goto close_stream;
+	}
+
+	if (!cx9r_seof(stream)) {
+		printf("expected end of file not reported by stream\n");
+		goto close_stream;
+	}
+
 	// close stream, closing the underlying file
 	if (cx9r_sclose(stream) == EOF) {
 		printf("error closing buffered file stream\n");
@@ -90,16 +104,17 @@ int main(void) {
 
 	return 0;
 
-	close_stream:
+close_stream:
 
 	cx9r_sclose(stream);
+	remove(TESTFILE);
 	return 1;
 
-	close_file:
+close_file:
 
 	fclose(f);
 
-	bail:
+bail:
 
 	return 1;
 }
