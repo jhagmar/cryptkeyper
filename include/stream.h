@@ -46,6 +46,12 @@ struct cx9r_stream
 
 // stream read
 size_t cx9r_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t *stream);
+// stream end of file
+int cx9r_seof(cx9r_stream_t *stream);
+// stream error
+int cx9r_serror(cx9r_stream_t *stream);
+// stream close
+int cx9r_sclose(cx9r_stream_t *stream);
 
 // buffered file stream
 cx9r_stream_t *cx9r_buf_file_sopen(FILE *file);
