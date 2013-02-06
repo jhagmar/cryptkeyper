@@ -19,6 +19,7 @@
 
 #include "stream.h"
 #include "util.h"
+#include <stdlib.h>
 #include <stdint.h>
 
 #define BUF_FILE_BUF_LENGTH (1 << 16)
