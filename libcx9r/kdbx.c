@@ -347,8 +347,8 @@ static void generate_key(ckpr_ctx_impl *ctx, char *passphrase) {
 
 	cx9r_aes256_ecb_init(&aes_ctx, ctx->transform_seed);
 	for (i = 0; i < ctx->n_transform_rounds; i++) {
-		cx9r_aes256_ecb_encrypt(&aes_ctx, hash);
-		cx9r_aes256_ecb_encrypt(&aes_ctx, &hash[CX9R_AES256_BLOCK_LENGTH]);
+		cx9r_aes256_ecb_encrypt_block(&aes_ctx, hash);
+		cx9r_aes256_ecb_encrypt_block(&aes_ctx, &hash[CX9R_AES256_BLOCK_LENGTH]);
 	}
 	cx9r_aes256_ecb_close(&aes_ctx);
 

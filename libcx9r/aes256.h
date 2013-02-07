@@ -22,6 +22,7 @@
 #ifndef CX9R_AES256_H
 #define CX9R_AES256_H
 
+#include <cx9r.h>
 #include "../config.h"
 
 #define CX9R_AES256_KEY_LENGTH 32
@@ -37,13 +38,13 @@
 
 #include <stdint.h>
 
-void cx9r_aes256_ecb_init(cx9r_aes256_ecb_ctx *ctx, uint8_t *key);
-void cx9r_aes256_ecb_encrypt(cx9r_aes256_ecb_ctx *ctx, uint8_t *block);
-void cx9r_aes256_ecb_close(cx9r_aes256_ecb_ctx *ctx);
+cx9r_err cx9r_aes256_ecb_init(cx9r_aes256_ecb_ctx *ctx, uint8_t *key);
+cx9r_err cx9r_aes256_ecb_encrypt_block(cx9r_aes256_ecb_ctx *ctx, uint8_t *block);
+cx9r_err cx9r_aes256_ecb_close(cx9r_aes256_ecb_ctx *ctx);
 
-void cx9r_aes256_cbc_init(cx9r_aes256_ecb_ctx *ctx, uint8_t *key, uint8_t *iv);
-void cx9r_aes256_cbc_decrypt(cx9r_aes256_ecb_ctx *ctx, uint8_t *buffer, size_t length);
-void cx9r_aes256_cbc_close(cx9r_aes256_ecb_ctx *ctx);
+cx9r_err cx9r_aes256_cbc_init(cx9r_aes256_ecb_ctx *ctx, uint8_t *key, uint8_t *iv);
+cx9r_err cx9r_aes256_cbc_decrypt(cx9r_aes256_ecb_ctx *ctx, uint8_t *buffer, size_t length);
+cx9r_err cx9r_aes256_cbc_close(cx9r_aes256_ecb_ctx *ctx);
 
 
 #endif

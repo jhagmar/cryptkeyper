@@ -21,6 +21,7 @@
 #define CX9R_BAD_HEADER_FIELD_ID 12	// bad header field id
 #define CX9R_INIT_FAILURE 13            // initalization failed
 #define CX9R_SHA256_FAILURE 14			// sha256 computation failed
+#define CX9R_AES256_FAILURE 15			// aes256 operation failed
 
 typedef int cx9r_err;			// return code
 typedef void * ckpr_ctx;		// context
