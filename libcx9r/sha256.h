@@ -22,6 +22,7 @@
 #ifndef CX9R_SHA256_H
 #define CX9R_SHA256_H
 
+#include <cx9r.h>
 #include "../config.h"
 
 #define CX9R_SHA256_HASH_LENGTH 32
@@ -35,10 +36,10 @@
 
 #include <stdint.h>
 
-void cx9r_sha256_init(cx9r_sha256_ctx *ctx);
-void cx9r_sha256_process(cx9r_sha256_ctx *ctx, uint8_t *buffer, size_t length);
-void cx9r_sha256_close(cx9r_sha256_ctx *ctx, uint8_t *hash);
-void cx9r_sha256_hash_buffer(uint8_t *hash, uint8_t *buffer, size_t length);
+cx9r_err cx9r_sha256_init(cx9r_sha256_ctx *ctx);
+cx9r_err cx9r_sha256_process(cx9r_sha256_ctx *ctx, uint8_t *buffer, size_t length);
+cx9r_err cx9r_sha256_close(cx9r_sha256_ctx *ctx, uint8_t *hash);
+cx9r_err cx9r_sha256_hash_buffer(uint8_t *hash, uint8_t *buffer, size_t length);
 
 #endif
 

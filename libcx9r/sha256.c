@@ -19,24 +19,42 @@
 
 #include "sha256.h"
 #include <string.h>
+#include "util.h"
 
-void cx9r_sha256_init(cx9r_sha256_ctx *ctx)
+cx9r_err cx9r_sha256_init(cx9r_sha256_ctx *ctx)
 {
-  gcry_md_open(ctx, GCRY_MD_SHA256, 0);
+  if (gcry_md_open(ctx, GCRY_MD_SHA256, 0) == GPG_ERR_NO_ERROR) {
+	  return CX9R_OK;
+  }
+  else {
+	  return CX9R_SHA256_FAILURE;
+  }
 }
 
-void cx9r_sha256_process(cx9r_sha256_ctx *ctx, uint8_t *buffer, size_t length)
+cx9r_err cx9r_sha256_process(cx9r_sha256_ctx *ctx, uint8_t *buffer, size_t length)
 {
   gcry_md_write(*ctx, buffer, length);
+  return CX9R_OK;
 }
 
-void cx9r_sha256_close(cx9r_sha256_ctx *ctx, uint8_t *hash)
+cx9r_err cx9r_sha256_close(cx9r_sha256_ctx *ctx, uint8_t *hash)
 {
-  memcpy(hash, gcry_md_read(*ctx, GCRY_MD_SHA256), CX9R_SHA256_HASH_LENGTH);
+  unsigned char *gcry_hash;
+  cx9r_err err = CX9R_OK;
+
+  gcry_hash = gcry_md_read(*ctx, GCRY_MD_SHA256);
+  CHECK((gcry_hash != NULL), err, CX9R_SHA256_FAILURE, cx9r_sha256_close_cleanup);
+
+  memcpy(hash, gcry_hash, CX9R_SHA256_HASH_LENGTH);
+
+cx9r_sha256_close_cleanup:
+
   gcry_md_close(*ctx);
+  return err;
 }
 
-void cx9r_sha256_hash_buffer(uint8_t *hash, uint8_t *buffer, size_t length)
+cx9r_err cx9r_sha256_hash_buffer(uint8_t *hash, uint8_t *buffer, size_t length)
 {
   gcry_md_hash_buffer(GCRY_MD_SHA256, hash, buffer, length);
+  return CX9R_OK;
 }
