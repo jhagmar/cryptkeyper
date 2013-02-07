@@ -170,11 +170,35 @@ static int handle_compression_field(uint16_t size, uint8_t *data) {
 	}
 }
 
+static void handle_field_wo_size(uint8_t **slot, uint8_t *data) {
+	DEALLOC(*slot);
+	*slot = data;
+}
+
 static int handle_field_w_size(uint8_t **slot, uint16_t expected_size,
 		uint16_t size, uint8_t *data) {
 	if (size == expected_size) {
-		DEALLOC(*slot);
-		*slot = data;
+		handle_field_wo_size(slot, data);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static int handle_uint64_field(uint64_t *slot, uint16_t size, uint8_t *data) {
+	if (size == sizeof(uint64_t)) {
+		*slot = lsb_to_uint64(data);
+		DEALLOC(data);
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static int handle_uint32_field(uint64_t *slot, uint16_t size, uint8_t *data) {
+	if (size == sizeof(uint32_t)) {
+		*slot = lsb_to_uint32(data);
+		DEALLOC(data);
 		return 1;
 	} else {
 		return 0;
@@ -234,16 +258,11 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
 			break;
 		case ID_TRANSFORM_SEED:
 			// KeePass writes 32 bytes, but does not check the length on reading
-			DEALLOC(ctx->transform_seed);
-			ctx->transform_seed = data;
+			handle_field_wo_size(&ctx->transform_seed, data);
 			break;
 		case ID_N_TRANSFORM_ROUNDS:
-			if (size != KDBX_N_TRANSFORM_ROUNDS_LENGTH) {
-				DEALLOC(data);
-				return CX9R_WRONG_N_TRANSFORM_ROUNDS_LENGTH;
-			}
-			ctx->n_transform_rounds = lsb_to_uint64(data);
-			DEALLOC(data);
+			CHECK((handle_uint64_field(&ctx->n_transform_rounds, size, data)),
+					err, CX9R_WRONG_N_TRANSFORM_ROUNDS_LENGTH, kdbx_read_header_cleanup_data);
 			break;
 		case ID_IV:
 			CHECK((handle_field_w_size(&ctx->iv, KDBX_IV_LENGTH, size, data)),
@@ -251,8 +270,7 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
 			break;
 		case ID_PROTECTED_STREAM_KEY:
 			// KeePass writes 32 bytes, but does not check the length on reading
-			DEALLOC(ctx->protected_stream_key);
-			ctx->protected_stream_key = data;
+			handle_field_wo_size(&ctx->protected_stream_key, data);
 			break;
 		case ID_STREAM_START_BYTES:
 			CHECK(
@@ -261,12 +279,8 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
 					kdbx_read_header_cleanup_data);
 			break;
 		case ID_INNER_RANDOM_STREAM_ID:
-			if (size != KDBX_INNER_RANDOM_STREAM_ID_LENGTH) {
-				DEALLOC(data);
-				return CX9R_WRONG_INNER_RANDOM_STREAM_ID_LENGTH;
-			}
-			ctx->inner_random_stream_id = lsb_to_uint32(data);
-			DEALLOC(data);
+			CHECK((handle_uint32_field(&ctx->n_transform_rounds, size, data)),
+					err, CX9R_WRONG_INNER_RANDOM_STREAM_ID_LENGTH, kdbx_read_header_cleanup_data);
 			break;
 		default:
 			CHECK((0), err, CX9R_BAD_HEADER_FIELD_ID,
