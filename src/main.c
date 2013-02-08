@@ -164,6 +164,8 @@ int main(int argc, char *argv[])
 
   transform_key(hash, seed, 10);
 
+  dbg(hash, HASH_LENGTH);
+
   gcry_md_hash_buffer(GCRY_MD_SHA256, hash, hash, HASH_LENGTH);
 
   gcry_md_open(&sha256h, GCRY_MD_SHA256, 0);

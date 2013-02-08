@@ -52,10 +52,6 @@
 // free a block of allocated memory and reset the pointer
 #define DEALLOC(x) do {if (x != NULL) {free(x); x = NULL;}} while(0)
 
-// bail out by goto to a tag if criterion is true, setting a return
-// variable
-#define CHECK(crit, err_var, err_val, tag) do { if (!(crit)) {err_var = err_val; goto tag;} } while(0)
-
 // context implementation
 typedef struct {
 	uint8_t *master_seed;
@@ -195,7 +191,7 @@ static int handle_uint64_field(uint64_t *slot, uint16_t size, uint8_t *data) {
 	}
 }
 
-static int handle_uint32_field(uint64_t *slot, uint16_t size, uint8_t *data) {
+static int handle_uint32_field(uint32_t *slot, uint16_t size, uint8_t *data) {
 	if (size == sizeof(uint32_t)) {
 		*slot = lsb_to_uint32(data);
 		DEALLOC(data);
@@ -227,8 +223,8 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
 		CHECK((fread(data, 1, size, f) == size), err, CX9R_FILE_READ_ERR,
 				kdbx_read_header_cleanup_data);
 
-		printf("id: %d, size: %d\n", id, size);
-		dbg(data, size);
+		//printf("id: %d, size: %d\n", id, size);
+		//dbg(data, size);
 
 		// there is nothing in the format stopping us from having multiple instances
 		// of one field. Therefore we need to make sure that the context slot is
@@ -279,7 +275,7 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
 					kdbx_read_header_cleanup_data);
 			break;
 		case ID_INNER_RANDOM_STREAM_ID:
-			CHECK((handle_uint32_field(&ctx->n_transform_rounds, size, data)),
+			CHECK((handle_uint32_field(&ctx->inner_random_stream_id, size, data)),
 					err, CX9R_WRONG_INNER_RANDOM_STREAM_ID_LENGTH, kdbx_read_header_cleanup_data);
 			break;
 		default:
@@ -334,51 +330,94 @@ static void ctx_free(ckpr_ctx_impl *ctx) {
 	DEALLOC(ctx);
 }
 
-static void generate_key(ckpr_ctx_impl *ctx, char *passphrase) {
+static cx9r_err generate_key(ckpr_ctx_impl *ctx, char *passphrase) {
 	size_t length;
 	uint8_t hash[CX9R_SHA256_HASH_LENGTH];
 	cx9r_aes256_ecb_ctx aes_ctx;
 	uint64_t i;
 	cx9r_sha256_ctx sha_ctx;
+	cx9r_err err = CX9R_OK;
 
 	length = strlen(passphrase);
-	cx9r_sha256_hash_buffer(hash, passphrase, length);
-	cx9r_sha256_hash_buffer(hash, hash, CX9R_SHA256_HASH_LENGTH);
 
-	cx9r_aes256_ecb_init(&aes_ctx, ctx->transform_seed);
+	CHEQ(((err = cx9r_sha256_hash_buffer(hash, passphrase, length)) == CX9R_OK),
+			bail);
+
+	CHEQ(((err = cx9r_sha256_hash_buffer(hash, hash, CX9R_SHA256_HASH_LENGTH))
+			== CX9R_OK), bail);
+
+	CHEQ(((err = cx9r_aes256_ecb_init(&aes_ctx, ctx->transform_seed)) == CX9R_OK),
+			bail);
+
 	for (i = 0; i < ctx->n_transform_rounds; i++) {
-		cx9r_aes256_ecb_encrypt_block(&aes_ctx, hash);
-		cx9r_aes256_ecb_encrypt_block(&aes_ctx, &hash[CX9R_AES256_BLOCK_LENGTH]);
+		CHEQ(((err = cx9r_aes256_ecb_encrypt_block(&aes_ctx, hash)) == CX9R_OK), cleanup_aes);
+		CHEQ(((err = cx9r_aes256_ecb_encrypt_block(&aes_ctx,
+				&hash[CX9R_AES256_BLOCK_LENGTH])) == CX9R_OK), cleanup_aes);
 	}
-	cx9r_aes256_ecb_close(&aes_ctx);
 
-	cx9r_sha256_hash_buffer(hash, hash, CX9R_SHA256_HASH_LENGTH);
+	CHEQ(((err = cx9r_aes256_ecb_close(&aes_ctx)) == CX9R_OK), bail);
 
-	cx9r_sha256_init(&sha_ctx);
-	cx9r_sha256_process(&sha_ctx, ctx->master_seed, KDBX_MASTER_SEED_LENGTH);
-	cx9r_sha256_process(&sha_ctx, hash, CX9R_SHA256_HASH_LENGTH);
-	cx9r_sha256_close(&sha_ctx, hash);
+	CHEQ(((err = cx9r_sha256_hash_buffer(hash, hash, CX9R_SHA256_HASH_LENGTH)) == CX9R_OK),
+			bail);
 
-	dbg(hash, CX9R_SHA256_HASH_LENGTH);
-	ctx->key = malloc(CX9R_AES256_KEY_LENGTH);
+	CHEQ(((err = cx9r_sha256_init(&sha_ctx)) == CX9R_OK), bail);
+	CHEQ(((err = cx9r_sha256_process(&sha_ctx, ctx->master_seed, KDBX_MASTER_SEED_LENGTH))
+			== CX9R_OK), cleanup_sha);
+	CHEQ(((err = cx9r_sha256_process(&sha_ctx, hash, CX9R_SHA256_HASH_LENGTH))
+			== CX9R_OK), cleanup_sha);
+	CHEQ(((err = cx9r_sha256_close(&sha_ctx, hash)) == CX9R_OK), bail);
+
+	DEALLOC(ctx->key);
+	CHECK(((ctx->key = malloc(CX9R_AES256_KEY_LENGTH)) != NULL),
+			err, CX9R_MEM_ALLOC_ERR, bail);
+
 	memcpy(ctx->key, hash, CX9R_AES256_KEY_LENGTH);
+
+	goto bail;
+
+cleanup_sha:
+
+	cx9r_sha256_close(&sha_ctx, hash);
+	goto bail;
+
+cleanup_aes:
+
+	cx9r_aes256_ecb_close(&aes_ctx);
+	goto bail;
+
+bail:
+
+	return err;
 }
 
-static void verify_start_bytes(FILE *f, ckpr_ctx_impl *ctx) {
+static cx9r_err verify_start_bytes(FILE *f, ckpr_ctx_impl *ctx) {
 	uint8_t start_bytes[KDBX_STREAM_START_BYTES_LENGTH];
 	cx9r_aes256_cbc_ctx aes_ctx;
+	cx9r_err err = CX9R_OK;
 
-	fread(start_bytes, 1, KDBX_STREAM_START_BYTES_LENGTH, f);
+	CHECK((fread(start_bytes, 1, KDBX_STREAM_START_BYTES_LENGTH, f) ==
+			KDBX_STREAM_START_BYTES_LENGTH), err, CX9R_FILE_READ_ERR, bail);
 
-	cx9r_aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv);
-	cx9r_aes256_cbc_decrypt(&aes_ctx, start_bytes,
-			KDBX_STREAM_START_BYTES_LENGTH);
+	CHEQ(((err = cx9r_aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv)) == CX9R_OK),
+			bail);
+	CHEQ(((err = cx9r_aes256_cbc_decrypt(&aes_ctx, start_bytes,
+			KDBX_STREAM_START_BYTES_LENGTH)) == CX9R_OK), cleanup_aes);
+	CHEQ(((err = cx9r_aes256_cbc_close(&aes_ctx)) == CX9R_OK), bail);
+
+	CHECK((memcmp(start_bytes, ctx->stream_start_bytes,
+			KDBX_STREAM_START_BYTES_LENGTH) == 0), err,
+			CX9R_KEY_VERIFICATION_FAILED, bail);
+
+	goto bail;
+
+cleanup_aes:
+
 	cx9r_aes256_cbc_close(&aes_ctx);
+	goto bail;
 
-	if (memcmp(start_bytes, ctx->stream_start_bytes,
-			KDBX_STREAM_START_BYTES_LENGTH) == 0) {
-		printf("OK!!!!!!");
-	}
+bail:
+
+	return err;
 
 }
 
@@ -391,33 +430,26 @@ cx9r_err cx9r_init() {
 }
 
 cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
-	cx9r_err err;
+	cx9r_err err = CX9R_OK;
 	ckpr_ctx_impl *ctx;
 
-	if ((err = kdbx_read_magic(f)) != CX9R_OK)
-	{
-		return err;
-	}
+	CHEQ(((err = kdbx_read_magic(f)) == CX9R_OK), bail);
 
-	if ((err = kdbx_read_version(f)) != CX9R_OK)
-	{
-		return err;
-	}
+	CHEQ(((err = kdbx_read_version(f)) == CX9R_OK), bail);
 
-	if ((ctx = ctx_alloc()) == NULL ) {
-		return CX9R_MEM_ALLOC_ERR;
-	}
+	CHECK(((ctx = ctx_alloc()) != NULL), err, CX9R_MEM_ALLOC_ERR,
+			bail);
 
-	if ((err = kdbx_read_header(f, ctx)) != CX9R_OK)
-	{
-		ctx_free(ctx);
-		return err;
-	}
+	CHEQ(((err = kdbx_read_header(f, ctx)) == CX9R_OK), cleanup_ctx);
 
-	generate_key(ctx, passphrase);
-	verify_start_bytes(f, ctx);
+	CHEQ(((err = generate_key(ctx, passphrase)) == CX9R_OK), cleanup_ctx);
 
+	CHEQ(((err = verify_start_bytes(f, ctx)) == CX9R_OK), cleanup_ctx);
+
+cleanup_ctx:
 	ctx_free(ctx);
-	return CX9R_OK;
+
+bail:
+	return err;
 }
 

@@ -23,5 +23,6 @@
 // bail out by goto to a tag if criterion is true, setting a return
 // variable
 #define CHECK(crit, err_var, err_val, tag) do { if (!(crit)) {err_var = err_val; goto tag;} } while(0)
+#define CHEQ(crit, tag) do { if (!(crit)) goto tag; } while(0)
 
 #endif
