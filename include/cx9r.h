@@ -25,7 +25,7 @@
 #define CX9R_KEY_VERIFICATION_FAILED 16 // failed to verify key
 
 typedef int cx9r_err;			// return code
-typedef void * ckpr_ctx;		// context
+typedef void * cx9r_ctx;		// context
 
 cx9r_err cx9r_init();
 cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase);

@@ -18,6 +18,7 @@
  */
 
 #include <cx9r.h>
+#include <stream.h>
 #include "sha256.h"
 #include "aes256.h"
 #include "util.h"
