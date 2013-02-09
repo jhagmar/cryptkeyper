@@ -29,18 +29,18 @@ int main(void)
   if (f == NULL) return 1;
 
   if ((err = cx9r_init()) != CX9R_OK)
-    goto cleanup;
+    goto cleanup_file;
 
   if ((err = cx9r_kdbx_read(f, "qwertyuiopqwertyuiop")) != CX9R_OK)
-    goto cleanup;
+    goto bail;
 
- cleanup:
-
-  if (fclose(f) != 0)
-  {
-    return 1;
-  }
+bail:
 
   return err;
+
+cleanup_file:
+
+    fclose(f);
+    return err;
 }
 

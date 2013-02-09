@@ -89,7 +89,7 @@ static uint32_t lsb_to_uint32(uint8_t *b) {
 }
 
 // read verify the kdbx magic bytes from a file
-static cx9r_err kdbx_read_magic(FILE *f) {
+static cx9r_err kdbx_read_magic(cx9r_stream_t *stream) {
 	uint8_t const kdbx_magic[KDBX_MAGIC_LENGTH] = { 0x03, 0xd9, 0xa2, 0x9a,
 			0x67, 0xfb, 0x4b, 0xb5 };
 
@@ -99,7 +99,7 @@ static cx9r_err kdbx_read_magic(FILE *f) {
 	cx9r_err err = CX9R_OK;
 
 	// read magic bytes
-	CHECK((fread(magic, 1, KDBX_MAGIC_LENGTH, f) == KDBX_MAGIC_LENGTH), err,
+	CHECK((cx9r_sread(magic, 1, KDBX_MAGIC_LENGTH, stream) == KDBX_MAGIC_LENGTH), err,
 			CX9R_FILE_READ_ERR, kdbx_magic_bail);
 
 	// compare magic bytes to expected
@@ -112,7 +112,7 @@ static cx9r_err kdbx_read_magic(FILE *f) {
 }
 
 // read file format version from kdbx file
-static cx9r_err kdbx_read_version(FILE *f) {
+static cx9r_err kdbx_read_version(cx9r_stream_t *stream) {
 	// version 2.20.1
 	uint8_t const kdbx_version[KDBX_VERSION_LENGTH] = { 0x01, 0x00, 0x03, 0x00 };
 
@@ -122,7 +122,7 @@ static cx9r_err kdbx_read_version(FILE *f) {
 	cx9r_err err = CX9R_OK;
 
 	// read version
-	CHECK((fread(version, 1, KDBX_VERSION_LENGTH, f) == KDBX_VERSION_LENGTH),
+	CHECK((cx9r_sread(version, 1, KDBX_VERSION_LENGTH, stream) == KDBX_VERSION_LENGTH),
 			err, CX9R_FILE_READ_ERR, kdbx_read_version_bail);
 
 	// compare version to expected
@@ -203,7 +203,7 @@ static int handle_uint32_field(uint32_t *slot, uint16_t size, uint8_t *data) {
 }
 
 // read the kdbx file header
-static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
+static cx9r_err kdbx_read_header(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	uint8_t id = 1;		// header field id
 	uint16_t size;		// header field size
 	uint8_t *data;		// header field data
@@ -211,17 +211,17 @@ static cx9r_err kdbx_read_header(FILE *f, ckpr_ctx_impl *ctx) {
 
 	while (id) {
 		// read id
-		CHECK((fread(&id, 1, sizeof(id), f) == sizeof(id)), err,
+		CHECK((cx9r_sread(&id, 1, sizeof(id), stream) == sizeof(id)), err,
 				CX9R_FILE_READ_ERR, kdbx_read_header_bail);
 
 		// read size
-		CHECK((fread(&size, 1, sizeof(size), f) == sizeof(size)), err,
+		CHECK((cx9r_sread(&size, 1, sizeof(size), stream) == sizeof(size)), err,
 				CX9R_FILE_READ_ERR, kdbx_read_header_bail);
 
 		CHECK(((data = (uint8_t*)malloc(size)) != NULL), err,
 				CX9R_MEM_ALLOC_ERR, kdbx_read_header_bail);
 
-		CHECK((fread(data, 1, size, f) == size), err, CX9R_FILE_READ_ERR,
+		CHECK((cx9r_sread(data, 1, size, stream) == size), err, CX9R_FILE_READ_ERR,
 				kdbx_read_header_cleanup_data);
 
 		//printf("id: %d, size: %d\n", id, size);
@@ -391,12 +391,12 @@ bail:
 	return err;
 }
 
-static cx9r_err verify_start_bytes(FILE *f, ckpr_ctx_impl *ctx) {
+static cx9r_err verify_start_bytes(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	uint8_t start_bytes[KDBX_STREAM_START_BYTES_LENGTH];
 	cx9r_aes256_cbc_ctx aes_ctx;
 	cx9r_err err = CX9R_OK;
 
-	CHECK((fread(start_bytes, 1, KDBX_STREAM_START_BYTES_LENGTH, f) ==
+	CHECK((cx9r_sread(start_bytes, 1, KDBX_STREAM_START_BYTES_LENGTH, stream) ==
 			KDBX_STREAM_START_BYTES_LENGTH), err, CX9R_FILE_READ_ERR, bail);
 
 	CHEQ(((err = cx9r_aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv)) == CX9R_OK),
@@ -433,24 +433,35 @@ cx9r_err cx9r_init() {
 cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	cx9r_err err = CX9R_OK;
 	ckpr_ctx_impl *ctx;
+	cx9r_stream_t *stream;
 
-	CHEQ(((err = kdbx_read_magic(f)) == CX9R_OK), bail);
+	CHECK(((stream = cx9r_buf_file_sopen(f)) != NULL),
+			err, CX9R_STREAM_OPEN_ERR, cleanup_file);
 
-	CHEQ(((err = kdbx_read_version(f)) == CX9R_OK), bail);
+	CHEQ(((err = kdbx_read_magic(stream)) == CX9R_OK), cleanup_stream);
+
+	CHEQ(((err = kdbx_read_version(stream)) == CX9R_OK), cleanup_stream);
 
 	CHECK(((ctx = ctx_alloc()) != NULL), err, CX9R_MEM_ALLOC_ERR,
-			bail);
+			cleanup_stream);
 
-	CHEQ(((err = kdbx_read_header(f, ctx)) == CX9R_OK), cleanup_ctx);
+	CHEQ(((err = kdbx_read_header(stream, ctx)) == CX9R_OK), cleanup_ctx);
 
 	CHEQ(((err = generate_key(ctx, passphrase)) == CX9R_OK), cleanup_ctx);
 
-	CHEQ(((err = verify_start_bytes(f, ctx)) == CX9R_OK), cleanup_ctx);
+	CHEQ(((err = verify_start_bytes(stream, ctx)) == CX9R_OK), cleanup_ctx);
 
 cleanup_ctx:
 	ctx_free(ctx);
 
+cleanup_stream:
+	cx9r_sclose(stream);
+
 bail:
+	return err;
+
+cleanup_file:
+	fclose(f);
 	return err;
 }
 

@@ -23,6 +23,7 @@
 #define CX9R_SHA256_FAILURE 14			// sha256 computation failed
 #define CX9R_AES256_FAILURE 15			// aes256 operation failed
 #define CX9R_KEY_VERIFICATION_FAILED 16 // failed to verify key
+#define CX9R_STREAM_OPEN_ERR 17			// error opening stream
 
 typedef int cx9r_err;			// return code
 typedef void * cx9r_ctx;		// context
