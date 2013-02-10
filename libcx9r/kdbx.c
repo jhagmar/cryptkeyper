@@ -399,11 +399,11 @@ static cx9r_err verify_start_bytes(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	CHECK((cx9r_sread(start_bytes, 1, KDBX_STREAM_START_BYTES_LENGTH, stream) ==
 			KDBX_STREAM_START_BYTES_LENGTH), err, CX9R_FILE_READ_ERR, bail);
 
-	CHEQ(((err = cx9r_aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv)) == CX9R_OK),
-			bail);
-	CHEQ(((err = cx9r_aes256_cbc_decrypt(&aes_ctx, start_bytes,
-			KDBX_STREAM_START_BYTES_LENGTH)) == CX9R_OK), cleanup_aes);
-	CHEQ(((err = cx9r_aes256_cbc_close(&aes_ctx)) == CX9R_OK), bail);
+	//CHEQ(((err = cx9r_aes256_cbc_init(&aes_ctx, ctx->key, ctx->iv)) == CX9R_OK),
+	//		bail);
+	//CHEQ(((err = cx9r_aes256_cbc_decrypt(&aes_ctx, start_bytes,
+	//		KDBX_STREAM_START_BYTES_LENGTH)) == CX9R_OK), cleanup_aes);
+	//CHEQ(((err = cx9r_aes256_cbc_close(&aes_ctx)) == CX9R_OK), bail);
 
 	CHECK((memcmp(start_bytes, ctx->stream_start_bytes,
 			KDBX_STREAM_START_BYTES_LENGTH) == 0), err,
@@ -434,6 +434,8 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	cx9r_err err = CX9R_OK;
 	ckpr_ctx_impl *ctx;
 	cx9r_stream_t *stream;
+	cx9r_stream_t *decrypted_stream;
+	uint8_t buf[1027];
 
 	CHECK(((stream = cx9r_buf_file_sopen(f)) != NULL),
 			err, CX9R_STREAM_OPEN_ERR, cleanup_file);
@@ -449,7 +451,16 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 
 	CHEQ(((err = generate_key(ctx, passphrase)) == CX9R_OK), cleanup_ctx);
 
+	CHECK(((decrypted_stream = cx9r_aes256_cbc_sopen(stream, ctx->key, ctx->iv)) != NULL),
+			err, CX9R_STREAM_OPEN_ERR, cleanup_ctx);
+
+	stream = decrypted_stream;
+
 	CHEQ(((err = verify_start_bytes(stream, ctx)) == CX9R_OK), cleanup_ctx);
+
+	while (!cx9r_seof(stream)) {
+		cx9r_sread(buf, 1, 1027, stream);
+	}
 
 cleanup_ctx:
 	ctx_free(ctx);
