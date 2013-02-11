@@ -29,6 +29,9 @@
 
 // stream read
 size_t cx9r_sread(void *ptr, size_t size, size_t nmemb, cx9r_stream_t *stream) {
+	if (cx9r_seof(stream) || cx9r_serror(stream)) {
+		return 0;
+	}
 	return stream->sread(ptr, size, nmemb, stream);
 }
 
@@ -52,7 +55,7 @@ typedef struct {
 	FILE *file;
 } file_data_t;
 
-// read from buffered file stream
+// read from file stream
 static size_t file_sread(void *ptr, size_t size, size_t nmemb,
 		cx9r_stream_t *stream) {
 	file_data_t *data;
@@ -64,7 +67,7 @@ static size_t file_sread(void *ptr, size_t size, size_t nmemb,
 	return fread(ptr, size, nmemb, file);
 }
 
-// buffered file stream end of file
+// file stream end of file
 static int file_seof(cx9r_stream_t *stream) {
 	file_data_t *data;
 	FILE *file;
@@ -75,7 +78,7 @@ static int file_seof(cx9r_stream_t *stream) {
 	return feof(file);
 }
 
-// buffered file stream error
+// file stream error
 static int file_serror(cx9r_stream_t *stream) {
 	file_data_t *data;
 	FILE *file;
@@ -86,7 +89,7 @@ static int file_serror(cx9r_stream_t *stream) {
 	return ferror(file);
 }
 
-// buffered file stream close
+// file stream close
 static int file_sclose(cx9r_stream_t *stream) {
 	file_data_t *data;
 	FILE *file;
@@ -460,11 +463,6 @@ static size_t hash_sread(void *ptr, size_t size, size_t nmemb,
 	size_t i;
 
 	data = (hash_data_t*) stream->data;
-
-	if (cx9r_seof(stream)) {
-		return 0;
-	}
-
 	out = (uint8_t*) ptr;
 	total = size * nmemb;
 	pos = 0;
@@ -540,7 +538,7 @@ bail:
 	return pos / size;
 }
 
-// buffered file stream end of file
+// hashed stream end of file
 static int hash_seof(cx9r_stream_t *stream) {
 	hash_data_t *data;
 	cx9r_stream_t *in;
@@ -551,7 +549,7 @@ static int hash_seof(cx9r_stream_t *stream) {
 	return (data->eof && (data->pos == data->total));
 }
 
-// buffered file stream error
+// hashed stream error
 static int hash_serror(cx9r_stream_t *stream) {
 	hash_data_t *data;
 	cx9r_stream_t *in;
@@ -562,7 +560,7 @@ static int hash_serror(cx9r_stream_t *stream) {
 	return (cx9r_serror(in) || data->error);
 }
 
-// buffered file stream close
+// hashed stream close
 static int hash_sclose(cx9r_stream_t *stream) {
 	hash_data_t *data;
 	cx9r_stream_t *in;
@@ -578,7 +576,7 @@ static int hash_sclose(cx9r_stream_t *stream) {
 	return cx9r_sclose(in);
 }
 
-// KeePass hashed stream
+// open KeePass hashed stream
 cx9r_stream_t *cx9r_hash_sopen(cx9r_stream_t *in) {
 	cx9r_stream_t *stream;
 	hash_data_t *data;
@@ -599,8 +597,6 @@ cx9r_stream_t *cx9r_hash_sopen(cx9r_stream_t *in) {
 	stream->seof = hash_seof;
 	stream->serror = hash_serror;
 	stream->sclose = hash_sclose;
-
-	//aes256_cbc_fill_buf(data);
 
 	goto bail;
 

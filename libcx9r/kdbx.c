@@ -431,6 +431,7 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	cx9r_stream_t *decrypted_stream;
 	cx9r_stream_t *hashed_stream;
 	uint8_t buf[1027];
+	size_t n;
 	FILE *o;
 
 	CHECK(((stream = cx9r_file_sopen(f)) != NULL),
@@ -461,9 +462,11 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 
 	o = fopen("raw.xml", "w");
 
+	printf("test\n");
+
 	while (!cx9r_seof(stream)) {
-		cx9r_sread(buf, 1, 1027, stream);
-		fwrite(buf, 1, 1027, o);
+		n = cx9r_sread(buf, 1, 1027, stream);
+		fwrite(buf, 1, n, o);
 	}
 
 	fclose(o);
