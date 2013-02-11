@@ -591,6 +591,7 @@ cx9r_stream_t *cx9r_hash_sopen(cx9r_stream_t *in) {
 	data->pos = 0;
 	data->error = 0;
 	data->buf_index = 0;
+	data->eof = 0;
 	data->buf = NULL;
 
 	stream->sread = hash_sread;
