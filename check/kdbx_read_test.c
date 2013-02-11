@@ -25,14 +25,22 @@ int main(void)
   FILE *f;
   cx9r_err err;
 
+  printf("opening %s...\n", TESTFILE);
+
   f = fopen(TESTFILE, "r");
   if (f == NULL) return 1;
+
+  printf("initializing cryptkeyper library...\n");
 
   if ((err = cx9r_init()) != CX9R_OK)
     goto cleanup_file;
 
+  printf("parsing %s...\n", TESTFILE);
+
   if ((err = cx9r_kdbx_read(f, "qwertyuiopqwertyuiop")) != CX9R_OK)
     goto bail;
+
+  printf("test succeeded\n");
 
 bail:
 
