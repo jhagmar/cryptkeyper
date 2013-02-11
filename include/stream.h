@@ -59,6 +59,8 @@ cx9r_stream_t *cx9r_file_sopen(FILE *file);
 cx9r_stream_t *cx9r_buf_file_sopen(FILE *file);
 // AES256 CBC encrypted stream
 cx9r_stream_t *cx9r_aes256_cbc_sopen(cx9r_stream_t *stream, void *key, void* iv);
+// KeePass hashed stream
+cx9r_stream_t *cx9r_hash_sopen(cx9r_stream_t *stream);
 
 #endif
 

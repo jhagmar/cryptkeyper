@@ -19,6 +19,7 @@
 
 #include "stream.h"
 #include "aes256.h"
+#include "sha256.h"
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -431,3 +432,184 @@ cleanup_stream:
 bail:
 	return stream;
 }
+
+// extended context for KeePass hashed stream
+typedef struct {
+	cx9r_stream_t *in;
+	uint8_t *buf;
+	size_t total;
+	size_t pos;
+	uint32_t buf_index;
+	int eof;
+	int error;
+} hash_data_t;
+
+// read from hashed stream
+static size_t hash_sread(void *ptr, size_t size, size_t nmemb,
+		cx9r_stream_t *stream) {
+	hash_data_t *data;
+	size_t total;
+	size_t pos;
+	size_t n;
+	uint8_t *out;
+	uint8_t raw_buf_index[sizeof(uint32_t)];
+	uint8_t raw_buf_length[sizeof(int32_t)];
+	int32_t buf_length;
+	uint8_t read_hash[CX9R_SHA256_HASH_LENGTH];
+	uint8_t comp_hash[CX9R_SHA256_HASH_LENGTH];
+	size_t i;
+
+	data = (hash_data_t*) stream->data;
+
+	if (cx9r_seof(stream)) {
+		return 0;
+	}
+
+	out = (uint8_t*) ptr;
+	total = size * nmemb;
+	pos = 0;
+
+	while (pos < total) {
+		if (data->pos == data->total) {
+			if (cx9r_sread(raw_buf_index, 1, sizeof(uint32_t), data->in) != sizeof(uint32_t)) {
+				data->error = 1;
+				break;
+			}
+			if (cx9r_lsb_to_uint32(raw_buf_index) != data->buf_index) {
+				data->error = 1;
+				break;
+			}
+			data->buf_index++;
+			if (cx9r_sread(read_hash, 1, CX9R_SHA256_HASH_LENGTH, data->in) != CX9R_SHA256_HASH_LENGTH) {
+				data->error = 1;
+				break;
+			}
+			if (cx9r_sread(raw_buf_length, 1, sizeof(int32_t), data->in) != sizeof(int32_t)) {
+				data->error = 1;
+				break;
+			}
+			buf_length = cx9r_lsb_to_int32(raw_buf_length);
+			if (buf_length < 0) {
+				data->error = 1;
+				break;
+			}
+			if (buf_length == 0) {
+				for (i = 0; i < CX9R_SHA256_HASH_LENGTH; i++) {
+					if (read_hash[i] != 0) {
+						data->error = 1;
+						break;
+					}
+				}
+				data->eof = 1;
+				break;
+			}
+			if (data->buf != NULL) {
+				free(data->buf);
+				data->buf = NULL;
+			}
+			if ((data->buf = malloc(buf_length)) == NULL) {
+				data->error = 1;
+				break;
+			}
+			if (cx9r_sread(data->buf, 1, buf_length, data->in) != buf_length) {
+				data->error = 1;
+				free(data->buf);
+				data->buf = NULL;
+				break;
+			}
+			cx9r_sha256_hash_buffer(comp_hash, data->buf, buf_length);
+			if (memcmp(comp_hash, read_hash, CX9R_SHA256_HASH_LENGTH) != 0) {
+				data->error = 1;
+				free(data->buf);
+				data->buf = NULL;
+				break;
+			}
+			data->pos = 0;
+			data->total = buf_length;
+		}
+
+		n = MIN(data->total - data->pos, total - pos);
+
+		memcpy(out + pos, data->buf + data->pos, n);
+		pos += n;
+		data->pos += n;
+	}
+
+bail:
+
+	return pos / size;
+}
+
+// buffered file stream end of file
+static int hash_seof(cx9r_stream_t *stream) {
+	hash_data_t *data;
+	cx9r_stream_t *in;
+
+	data = (hash_data_t*) stream->data;
+	in = data->in;
+
+	return (data->eof && (data->pos == data->total));
+}
+
+// buffered file stream error
+static int hash_serror(cx9r_stream_t *stream) {
+	hash_data_t *data;
+	cx9r_stream_t *in;
+
+	data = (hash_data_t*) stream->data;
+	in = data->in;
+
+	return (cx9r_serror(in) || data->error);
+}
+
+// buffered file stream close
+static int hash_sclose(cx9r_stream_t *stream) {
+	hash_data_t *data;
+	cx9r_stream_t *in;
+
+	data = (hash_data_t*) stream->data;
+	in = data->in;
+
+	if (data->buf != NULL) {
+		free(data->buf);
+	}
+	free(data);
+	free(stream);
+	return cx9r_sclose(in);
+}
+
+// KeePass hashed stream
+cx9r_stream_t *cx9r_hash_sopen(cx9r_stream_t *in) {
+	cx9r_stream_t *stream;
+	hash_data_t *data;
+
+	CHEQ(((stream = malloc(sizeof(cx9r_stream_t))) != NULL), bail);
+
+	CHEQ(((stream->data = data = malloc(sizeof(hash_data_t))) != NULL),
+			cleanup_stream);
+
+	data->in = in;
+	data->total = 0;
+	data->pos = 0;
+	data->error = 0;
+	data->buf_index = 0;
+	data->buf = NULL;
+
+	stream->sread = hash_sread;
+	stream->seof = hash_seof;
+	stream->serror = hash_serror;
+	stream->sclose = hash_sclose;
+
+	//aes256_cbc_fill_buf(data);
+
+	goto bail;
+
+cleanup_stream:
+
+	free(stream);
+	stream = NULL;
+
+bail:
+	return stream;
+}
+

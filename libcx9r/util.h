@@ -17,12 +17,20 @@
  * along with cryptkeyper. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef CX9R_UTIL_H
+#define CX9R_UTIL_H
+
+#include <stdint.h>
 
 // bail out by goto to a tag if criterion is true, setting a return
 // variable
 #define CHECK(crit, err_var, err_val, tag) do { if (!(crit)) {err_var = err_val; goto tag;} } while(0)
 #define CHEQ(crit, tag) do { if (!(crit)) goto tag; } while(0)
+
+// convert an lsb byte array to uint32
+uint32_t cx9r_lsb_to_uint32(uint8_t *b);
+
+// convert an lsb byte array to int32
+int32_t cx9r_lsb_to_int32(uint8_t *b);
 
 #endif

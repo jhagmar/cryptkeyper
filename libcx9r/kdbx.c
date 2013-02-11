@@ -82,12 +82,6 @@ static uint64_t lsb_to_uint64(uint8_t *b) {
 			| (uint64_t) b[7] << 56;
 }
 
-// convert an lsb byte array to uint32
-static uint32_t lsb_to_uint32(uint8_t *b) {
-	return (uint32_t) b[0] | (uint32_t) b[1] << 8 | (uint32_t) b[2] << 16
-			| (uint32_t) b[3] << 24;
-}
-
 // read verify the kdbx magic bytes from a file
 static cx9r_err kdbx_read_magic(cx9r_stream_t *stream) {
 	uint8_t const kdbx_magic[KDBX_MAGIC_LENGTH] = { 0x03, 0xd9, 0xa2, 0x9a,
@@ -194,7 +188,7 @@ static int handle_uint64_field(uint64_t *slot, uint16_t size, uint8_t *data) {
 
 static int handle_uint32_field(uint32_t *slot, uint16_t size, uint8_t *data) {
 	if (size == sizeof(uint32_t)) {
-		*slot = lsb_to_uint32(data);
+		*slot = cx9r_lsb_to_uint32(data);
 		DEALLOC(data);
 		return 1;
 	} else {
@@ -435,7 +429,9 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	ckpr_ctx_impl *ctx;
 	cx9r_stream_t *stream;
 	cx9r_stream_t *decrypted_stream;
+	cx9r_stream_t *hashed_stream;
 	uint8_t buf[1027];
+	FILE *o;
 
 	CHECK(((stream = cx9r_file_sopen(f)) != NULL),
 			err, CX9R_STREAM_OPEN_ERR, cleanup_file);
@@ -458,9 +454,19 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 
 	CHEQ(((err = verify_start_bytes(stream, ctx)) == CX9R_OK), cleanup_ctx);
 
+	CHECK(((hashed_stream = cx9r_hash_sopen(stream)) != NULL),
+				err, CX9R_STREAM_OPEN_ERR, cleanup_ctx);
+
+	stream = hashed_stream;
+
+	o = fopen("raw.xml", "w");
+
 	while (!cx9r_seof(stream)) {
 		cx9r_sread(buf, 1, 1027, stream);
+		fwrite(buf, 1, 1027, o);
 	}
+
+	fclose(o);
 
 cleanup_ctx:
 	ctx_free(ctx);
