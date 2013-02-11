@@ -49,6 +49,87 @@ int cx9r_sclose(cx9r_stream_t *stream) {
 // extended context for buffered file stream
 typedef struct {
 	FILE *file;
+} file_data_t;
+
+// read from buffered file stream
+static size_t file_sread(void *ptr, size_t size, size_t nmemb,
+		cx9r_stream_t *stream) {
+	file_data_t *data;
+	FILE *file;
+
+	data = (file_data_t*) stream->data;
+	file = data->file;
+
+	return fread(ptr, size, nmemb, file);
+}
+
+// buffered file stream end of file
+static int file_seof(cx9r_stream_t *stream) {
+	file_data_t *data;
+	FILE *file;
+
+	data = (file_data_t*) stream->data;
+	file = data->file;
+
+	return feof(file);
+}
+
+// buffered file stream error
+static int file_serror(cx9r_stream_t *stream) {
+	file_data_t *data;
+	FILE *file;
+
+	data = (file_data_t*) stream->data;
+	file = data->file;
+
+	return ferror(file);
+}
+
+// buffered file stream close
+static int file_sclose(cx9r_stream_t *stream) {
+	file_data_t *data;
+	FILE *file;
+
+	data = (file_data_t*) stream->data;
+	file = data->file;
+
+	free(data);
+	free(stream);
+	return fclose(file);
+}
+
+cx9r_stream_t *cx9r_file_sopen(FILE *file) {
+	cx9r_stream_t *stream;
+	file_data_t *data;
+
+	CHEQ(((stream = malloc(sizeof(cx9r_stream_t))) != NULL),
+			bail);
+
+	CHEQ(((stream->data = data = malloc(sizeof(file_data_t))) != NULL),
+			dealloc_stream);
+
+	data->file = file;
+
+	stream->sread = file_sread;
+	stream->seof = file_seof;
+	stream->serror = file_serror;
+	stream->sclose = file_sclose;
+
+	goto bail;
+
+dealloc_stream:
+
+	free(stream);
+	stream = NULL;
+
+bail:
+
+	return stream;
+}
+
+// extended context for buffered file stream
+typedef struct {
+	FILE *file;
 	uint8_t buffer[BUF_FILE_BUF_LENGTH];
 	size_t total;
 	size_t pos;

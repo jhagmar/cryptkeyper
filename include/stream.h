@@ -53,6 +53,8 @@ int cx9r_serror(cx9r_stream_t *stream);
 // stream close
 int cx9r_sclose(cx9r_stream_t *stream);
 
+// file stream
+cx9r_stream_t *cx9r_file_sopen(FILE *file);
 // buffered file stream
 cx9r_stream_t *cx9r_buf_file_sopen(FILE *file);
 // AES256 CBC encrypted stream
