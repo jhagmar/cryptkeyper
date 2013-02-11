@@ -437,7 +437,7 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	cx9r_stream_t *decrypted_stream;
 	uint8_t buf[1027];
 
-	CHECK(((stream = cx9r_buf_file_sopen(f)) != NULL),
+	CHECK(((stream = cx9r_file_sopen(f)) != NULL),
 			err, CX9R_STREAM_OPEN_ERR, cleanup_file);
 
 	CHEQ(((err = kdbx_read_magic(stream)) == CX9R_OK), cleanup_stream);
