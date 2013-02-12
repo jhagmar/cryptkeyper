@@ -16,6 +16,7 @@ AM_PROG_CC_C_O
 # Checks for libraries.
 #AM_PATH_LIBGCRYPT
 AX_LIB_GCRYPT([yes])
+AX_CHECK_ZLIB
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdio.h])
