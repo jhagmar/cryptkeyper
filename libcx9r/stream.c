@@ -768,8 +768,10 @@ static int gzip_sclose(cx9r_stream_t *stream) {
 
 }
 
+#define GZIP_WINDOW_BITS (15 + 16) // largest window size, only gzip decompression
+
 // open gzip encrypted stream
-cx9r_stream_t *gzip_sopen(cx9r_stream_t *in) {
+cx9r_stream_t *cx9r_gzip_sopen(cx9r_stream_t *in) {
 	cx9r_stream_t *stream;
 	gzip_data_t *data;
 	z_stream *zstrm;
@@ -786,7 +788,7 @@ cx9r_stream_t *gzip_sopen(cx9r_stream_t *in) {
 	zstrm->opaque = Z_NULL;
 	zstrm->avail_in = 0;
 	zstrm->next_in = Z_NULL;
-	CHEQ((inflateInit(zstrm) == Z_OK), cleanup_data);
+	CHEQ((inflateInit2(zstrm, GZIP_WINDOW_BITS) == Z_OK), cleanup_data);
 
 	stream->sread = gzip_sread;
 	stream->seof = gzip_seof;

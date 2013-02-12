@@ -50,11 +50,16 @@
 #define ID_PROTECTED_STREAM_KEY 8	// protected stream key
 #define ID_STREAM_START_BYTES 9		// stream start bytes
 #define ID_INNER_RANDOM_STREAM_ID 10	// inner random stream ID
+
+#define COMPRESSION_NONE 0	// no compression
+#define COMPRESSION_GZIP 1	// gzip compression
+
 // free a block of allocated memory and reset the pointer
 #define DEALLOC(x) do {if (x != NULL) {free(x); x = NULL;}} while(0)
 
 // context implementation
 typedef struct {
+	uint32_t compression;
 	uint8_t *master_seed;
 	uint8_t *transform_seed;
 	uint64_t n_transform_rounds;
@@ -69,10 +74,6 @@ typedef struct {
 static const uint8_t aes_cbc_pkcs7_cipher_id[KDBX_CIPHER_ID_LENGTH] = { 0x31,
 		0xc1, 0xf2, 0xe6, 0xbf, 0x71, 0x43, 0x50, 0xbe, 0x58, 0x05, 0x21, 0x6a,
 		0xfc, 0x5a, 0xff };
-
-// compression field for no compression
-static const uint8_t no_compression[KDBX_COMPRESSION_LENGTH] = { 0x00, 0x00,
-		0x00, 0x00 };
 
 // convert an lsb byte array to uint64
 static uint64_t lsb_to_uint64(uint8_t *b) {
@@ -150,15 +151,20 @@ static int handle_cipher_field(uint16_t size, uint8_t *data) {
 	}
 }
 
-static int handle_compression_field(uint16_t size, uint8_t *data) {
-	// TODO check for gzip compression
-	if ((size == KDBX_COMPRESSION_LENGTH)
-			&& (memcmp(data, no_compression, KDBX_COMPRESSION_LENGTH) == 0)) {
-		DEALLOC(data);
-		return 1;
-	} else {
+static int handle_compression_field(uint32_t *slot, uint16_t size, uint8_t *data) {
+
+	uint32_t compression;
+
+	if (size != KDBX_COMPRESSION_LENGTH) {
 		return 0;
 	}
+	compression = cx9r_lsb_to_uint32(data);
+	if ((compression != COMPRESSION_NONE)
+			&& (compression != COMPRESSION_GZIP)) {
+		return 0;
+	}
+	*slot = compression;
+	return 1;
 }
 
 static void handle_field_wo_size(uint8_t **slot, uint8_t *data) {
@@ -238,7 +244,7 @@ static cx9r_err kdbx_read_header(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 					kdbx_read_header_cleanup_data);
 			break;
 		case ID_COMPRESSION:
-			CHECK((handle_compression_field(size, data)), err,
+			CHECK((handle_compression_field(&ctx->compression, size, data)), err,
 					CX9R_UNKNOWN_COMPRESSION, kdbx_read_header_cleanup_data);
 			break;
 		case ID_MASTER_SEED:
@@ -430,6 +436,7 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	cx9r_stream_t *stream;
 	cx9r_stream_t *decrypted_stream;
 	cx9r_stream_t *hashed_stream;
+	cx9r_stream_t *gzip_stream;
 	uint8_t buf[1027];
 	size_t n;
 	FILE *o;
@@ -460,9 +467,13 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 
 	stream = hashed_stream;
 
-	o = fopen("raw.xml", "w");
+	if (ctx->compression == COMPRESSION_GZIP) {
+		CHECK(((gzip_stream = cx9r_gzip_sopen(stream)) != NULL),
+					err, CX9R_STREAM_OPEN_ERR, cleanup_ctx);
+		stream = hashed_stream;
+	}
 
-	printf("test\n");
+	o = fopen("raw.xml", "w");
 
 	while (!cx9r_seof(stream)) {
 		n = cx9r_sread(buf, 1, 1027, stream);
