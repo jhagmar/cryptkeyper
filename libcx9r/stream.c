@@ -23,6 +23,7 @@
 #include "util.h"
 #include <stdlib.h>
 #include <stdint.h>
+#include <zlib.h>
 
 #define BUF_FILE_BUF_LENGTH (1 << 16)
 #define MIN(x,y) ((x < y) ? x : y)
@@ -600,6 +601,203 @@ cx9r_stream_t *cx9r_hash_sopen(cx9r_stream_t *in) {
 	stream->sclose = hash_sclose;
 
 	goto bail;
+
+cleanup_stream:
+
+	free(stream);
+	stream = NULL;
+
+bail:
+	return stream;
+}
+
+#define CHUNK 16384
+
+//int inf(FILE *source, FILE *dest)
+//{
+//    int ret;
+//    unsigned have;
+//    z_stream strm;
+//    unsigned char in[CHUNK];
+//    unsigned char out[CHUNK];
+//
+//    /* allocate inflate state */
+//    strm.zalloc = Z_NULL;
+//    strm.zfree = Z_NULL;
+//    strm.opaque = Z_NULL;
+//    strm.avail_in = 0;
+//    strm.next_in = Z_NULL;
+//    ret = inflateInit(&strm);
+//    if (ret != Z_OK)
+//        return ret;
+//
+//    /* decompress until deflate stream ends or end of file */
+//    do {
+//        strm.avail_in = fread(in, 1, CHUNK, source);
+//        if (ferror(source)) {
+//            (void)inflateEnd(&strm);
+//            return Z_ERRNO;
+//        }
+//        if (strm.avail_in == 0)
+//            break;
+//        strm.next_in = in;
+//
+//        /* run inflate() on input until output buffer not full */
+//        do {
+//            strm.avail_out = CHUNK;
+//            strm.next_out = out;
+//            ret = inflate(&strm, Z_NO_FLUSH);
+//            assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
+//            switch (ret) {
+//            case Z_NEED_DICT:
+//                ret = Z_DATA_ERROR;     /* and fall through */
+//            case Z_DATA_ERROR:
+//            case Z_MEM_ERROR:
+//                (void)inflateEnd(&strm);
+//                return ret;
+//            }
+//            have = CHUNK - strm.avail_out;
+//            if (fwrite(out, 1, have, dest) != have || ferror(dest)) {
+//                (void)inflateEnd(&strm);
+//                return Z_ERRNO;
+//            }
+//        } while (strm.avail_out == 0);
+//
+//        /* done when inflate() says it's done */
+//    } while (ret != Z_STREAM_END);
+//
+//    /* clean up and return */
+//    (void)inflateEnd(&strm);
+//    return ret == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
+//}
+
+// buffer size recommendation on zlib home page for efficient
+// operation is 2^18 bytes
+#define GZIP_BUF_LENGTH (1 << 18)
+
+// extended context for gzip stream
+typedef struct {
+	cx9r_stream_t *in;
+	z_stream zstrm;
+	uint8_t buf[GZIP_BUF_LENGTH];
+	int error;
+	int eof;
+} gzip_data_t;
+
+// read from gzip stream
+static size_t gzip_sread(void *ptr, size_t size, size_t nmemb,
+		cx9r_stream_t *stream) {
+	gzip_data_t *data;
+	cx9r_stream_t *in;
+	z_stream *zstrm;
+	size_t total;
+	size_t n;
+	uint8_t *out;
+	int ret;
+
+	data = (gzip_data_t*) stream->data;
+	zstrm = &data->zstrm;
+	out = (uint8_t*) ptr;
+	in = data->in;
+	total = zstrm->avail_out = size * nmemb;
+	zstrm->next_out = out;
+
+	while (zstrm->avail_out != 0) {
+		if (zstrm->avail_in == 0) {
+			n = cx9r_sread(data->buf, 1, GZIP_BUF_LENGTH, in);
+			if (n == 0) {
+				data->eof = 1;
+				break;
+			}
+			zstrm->next_in = data->buf;
+		}
+
+		ret = inflate(zstrm, Z_NO_FLUSH);
+		if ((ret == Z_NEED_DICT)
+				|| (ret == Z_STREAM_ERROR)
+				|| (ret == Z_DATA_ERROR)
+				|| (ret == Z_MEM_ERROR)) {
+			data->error = 1;
+			break;
+		}
+		if (ret == Z_STREAM_END) {
+			data->eof = 1;
+		}
+	}
+
+	return (total - zstrm->avail_out) / size;
+}
+
+// gzip stream end of file
+static int gzip_seof(cx9r_stream_t *stream) {
+	aes256_cbc_data_t *data;
+	cx9r_stream_t *in;
+
+	data = (aes256_cbc_data_t*) stream->data;
+	in = data->in;
+
+	return data->eof;
+}
+
+// AES256 CBC stream error
+static int gzip_serror(cx9r_stream_t *stream) {
+	aes256_cbc_data_t *data;
+	cx9r_stream_t *in;
+
+	data = (aes256_cbc_data_t*) stream->data;
+	in = data->in;
+
+	return (cx9r_serror(in) || data->error);
+}
+
+// buffered file stream close
+static int gzip_sclose(cx9r_stream_t *stream) {
+	aes256_cbc_data_t *data;
+	cx9r_aes256_cbc_ctx *ctx;
+	cx9r_stream_t *in;
+
+	data = (aes256_cbc_data_t*) stream->data;
+	in = data->in;
+	ctx = data->ctx;
+
+	cx9r_aes256_cbc_close(ctx);
+	free(ctx);
+	free(data);
+	free(stream);
+	return cx9r_sclose(in);
+
+}
+
+// open gzip encrypted stream
+cx9r_stream_t *gzip_sopen(cx9r_stream_t *in) {
+	cx9r_stream_t *stream;
+	gzip_data_t *data;
+	z_stream *zstrm;
+
+	CHEQ(((stream = malloc(sizeof(cx9r_stream_t))) != NULL),
+			bail);
+
+	CHEQ(((stream->data = data = malloc(sizeof(gzip_data_t))) != NULL),
+			cleanup_stream);
+
+	zstrm = &data->zstrm;
+	zstrm->zalloc = Z_NULL;
+	zstrm->zfree = Z_NULL;
+	zstrm->opaque = Z_NULL;
+	zstrm->avail_in = 0;
+	zstrm->next_in = Z_NULL;
+	CHEQ((inflateInit(zstrm) == Z_OK), cleanup_data);
+
+	stream->sread = gzip_sread;
+	stream->seof = gzip_seof;
+	stream->serror = gzip_serror;
+	stream->sclose = gzip_sclose;
+
+	goto bail;
+
+cleanup_data:
+
+	free(data);
 
 cleanup_stream:
 
