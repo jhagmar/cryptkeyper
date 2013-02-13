@@ -710,6 +710,7 @@ static size_t gzip_sread(void *ptr, size_t size, size_t nmemb,
 				break;
 			}
 			zstrm->next_in = data->buf;
+			zstrm->avail_in = n;
 		}
 
 		ret = inflate(zstrm, Z_NO_FLUSH);
@@ -730,42 +731,38 @@ static size_t gzip_sread(void *ptr, size_t size, size_t nmemb,
 
 // gzip stream end of file
 static int gzip_seof(cx9r_stream_t *stream) {
-	aes256_cbc_data_t *data;
+	gzip_data_t *data;
 	cx9r_stream_t *in;
 
-	data = (aes256_cbc_data_t*) stream->data;
+	data = (gzip_data_t*) stream->data;
 	in = data->in;
 
 	return data->eof;
 }
 
-// AES256 CBC stream error
+// gzip stream error
 static int gzip_serror(cx9r_stream_t *stream) {
-	aes256_cbc_data_t *data;
+	gzip_data_t *data;
 	cx9r_stream_t *in;
 
-	data = (aes256_cbc_data_t*) stream->data;
+	data = (gzip_data_t*) stream->data;
 	in = data->in;
 
 	return (cx9r_serror(in) || data->error);
 }
 
-// buffered file stream close
+// gzip stream close
 static int gzip_sclose(cx9r_stream_t *stream) {
-	aes256_cbc_data_t *data;
-	cx9r_aes256_cbc_ctx *ctx;
+	gzip_data_t *data;
 	cx9r_stream_t *in;
 
-	data = (aes256_cbc_data_t*) stream->data;
+	data = (gzip_data_t*) stream->data;
 	in = data->in;
-	ctx = data->ctx;
 
-	cx9r_aes256_cbc_close(ctx);
-	free(ctx);
+	inflateEnd(&data->zstrm);
 	free(data);
 	free(stream);
 	return cx9r_sclose(in);
-
 }
 
 #define GZIP_WINDOW_BITS (15 + 16) // largest window size, only gzip decompression
@@ -782,6 +779,9 @@ cx9r_stream_t *cx9r_gzip_sopen(cx9r_stream_t *in) {
 	CHEQ(((stream->data = data = malloc(sizeof(gzip_data_t))) != NULL),
 			cleanup_stream);
 
+	data->in = in;
+	data->eof = 0;
+	data->error = 0;
 	zstrm = &data->zstrm;
 	zstrm->zalloc = Z_NULL;
 	zstrm->zfree = Z_NULL;

@@ -470,7 +470,7 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 	if (ctx->compression == COMPRESSION_GZIP) {
 		CHECK(((gzip_stream = cx9r_gzip_sopen(stream)) != NULL),
 					err, CX9R_STREAM_OPEN_ERR, cleanup_ctx);
-		stream = hashed_stream;
+		stream = gzip_stream;
 	}
 
 	o = fopen("raw.xml", "w");
