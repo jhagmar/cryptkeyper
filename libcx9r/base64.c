@@ -18,6 +18,7 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 
 //static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 //                                'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
@@ -29,17 +30,13 @@
 //                                '4', '5', '6', '7', '8', '9', '+', '/'};
 
 // decoding table
-static char const dec[79] = {
-	0x3E, 0xFF, 0xFF, 0xFF, 0x3F, 0x34, 0x35, 0x36,
-	0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x01,
-	0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
-	0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11,
-	0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x1A, 0x1B,
-	0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23,
-	0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B,
-	0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32};
+static uint8_t const dec[80] = { 0x3E, 0xFF, 0xFF, 0xFF, 0x3F, 0x34, 0x35, 0x36,
+		0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+		0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+		0x16, 0x17, 0x18, 0x19, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x1A, 0x1B,
+		0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+		0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33 };
 
 //static int mod_table[] = {0, 2, 1};
 
@@ -51,61 +48,61 @@ static char const dec[79] = {
 #define BINARY_BLOCK_LENGTH 3
 #define INVALID_ASCII 0xFF
 
-#define IN_DECODING_RANGE(x) ((x >= FIRST_VALID_ASCII) && (x <= LAST_VALID_ASCII))
+#define PREPARE_INPUT(x, y) ((x = y - FIRST_VALID_ASCII) <= LAST_VALID_ASCII)
+#define DECODE(x) ((x = dec[x]) != INVALID_ASCII)
 
-size_t *base64_decode(uint8_t *out, char *in) {
+size_t base64_decode(void *out, char const *in) {
 
-	size_t ret = 0;
-	size_t binary_length;
+	uint8_t *o = (uint8_t*)out;
+	uint8_t *o_orig = o;
 	uint8_t buf[BASE64_BLOCK_LENGTH];
 
 	// continue until end of string
 	while (*in) {
 
-		// validate base64 block of valid characters
-		if (!(IN_DECODING_RANGE(in[0])
-				&& IN_DECODING_RANGE(in[1])
-				&& IN_DECODING_RANGE(in[2])
-				&& IN_DECODING_RANGE(in[3]))) {
+		// first validation of input
+		if (!(PREPARE_INPUT(buf[0], in[0]) && PREPARE_INPUT(buf[1], in[1])
+				&& PREPARE_INPUT(buf[2], in[2]) && PREPARE_INPUT(buf[3], in[3]))) {
 			return FORMAT_ERROR;
 		}
 
-		binary_length = BINARY_BLOCK_LENGTH;
-
-		// decode ASCII to 6-bit equivalents
-		if (in[3] == TERMINATOR) {
+		// validate and decode
+		if (in[3] != TERMINATOR) {
+			// we have "xxxx"
+			if (!(DECODE(buf[0]) && DECODE(buf[1]) && DECODE(buf[2])
+					&& DECODE(buf[3]))) {
+				return FORMAT_ERROR;
+			}
+			o[0] = ((buf[0] << 2) | (buf[1] >> 4));
+			o[1] = ((buf[1] << 4) | (buf[2] >> 2));
+			o[2] = ((buf[2] << 6) | (buf[3]));
+			in += BASE64_BLOCK_LENGTH;
+			o += BINARY_BLOCK_LENGTH;
+		} else {
+			// check that this is the last char
 			if (in[4] != 0) {
 				return FORMAT_ERROR;
 			}
-			buf[3] = 0;
-			binary_length--;
 			if (in[2] == TERMINATOR) {
-				buf[2] = 0;
-				binary_length--;
-			}
-			else {
-				if ((buf[2] = dec[in[2]]) == INVALID_ASCII) {
+				// we have "xx=="
+				if (!(DECODE(buf[0]) && DECODE(buf[1]))) {
 					return FORMAT_ERROR;
 				}
+				o[0] = ((buf[0] << 2) | (buf[1] >> 4));
+				o += BINARY_BLOCK_LENGTH - 2;
+				break;
+			} else {
+				// we have "xxx="
+				if (!(DECODE(buf[0]) && DECODE(buf[1]) && DECODE(buf[2]))) {
+					return FORMAT_ERROR;
+				}
+				o[0] = ((buf[0] << 2) | (buf[1] >> 4));
+				o[1] = ((buf[1] << 4) | (buf[2] >> 2));
+				o += BINARY_BLOCK_LENGTH - 1;
+				break;
 			}
 		}
-		else {
-			if ((buf[3] = dec[in[3]]) == INVALID_ASCII) {
-				return FORMAT_ERROR;
-			}
-		}
-		if ((buf[1] = dec[in[1]]) == INVALID_ASCII) {
-			return FORMAT_ERROR;
-		}
-		if ((buf[0] = dec[in[0]]) == INVALID_ASCII) {
-			return FORMAT_ERROR;
-		}
-
-		out[0] = ((buf[0] << 2) | (buf[1] >> 4));
-		if (binary_length > 1) {
-			out[1] = ((buf[0] << 2) | (buf[1] >> 4));
-		}
-
 	}
 
+	return o - o_orig;
 }

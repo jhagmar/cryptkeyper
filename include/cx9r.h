@@ -31,4 +31,6 @@ typedef void * cx9r_ctx;		// context
 cx9r_err cx9r_init();
 cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase);
 
+size_t base64_decode(void *out, char const *in);
+
 #endif

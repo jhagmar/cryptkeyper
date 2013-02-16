@@ -71,8 +71,7 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_keypr_OBJECTS = keypr-main.$(OBJEXT)
 keypr_OBJECTS = $(am_keypr_OBJECTS)
-am__DEPENDENCIES_1 =
-keypr_DEPENDENCIES = $(am__DEPENDENCIES_1)
+keypr_DEPENDENCIES = ../libcx9r/libcx9r.la
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -215,8 +214,8 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 keypr_SOURCES = main.c
-keypr_CPPFLAGS = $(GCRYPT_CFLAGS)
-keypr_LDADD = $(GCRYPT_LIBS)
+keypr_CPPFLAGS = -I$(top_srcdir)/include
+keypr_LDADD = ../libcx9r/libcx9r.la
 all: all-am
 
 .SUFFIXES:
