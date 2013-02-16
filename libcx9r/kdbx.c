@@ -163,6 +163,7 @@ static int handle_compression_field(uint32_t *slot, uint16_t size, uint8_t *data
 			&& (compression != COMPRESSION_GZIP)) {
 		return 0;
 	}
+	DEALLOC(data);
 	*slot = compression;
 	return 1;
 }
