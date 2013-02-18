@@ -200,32 +200,6 @@ int main(int argc, char *argv[])
 //
 //  printf("ok!!\n");
 
-  char const test1[] = "TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlz";
-  char const test2[] = "YW55IGNhcm5hbCBwbGVhc3Vy";
-  char const test3[] = "YW55IGNhcm5hbCBwbGVhc3U=";
-  char const test4[] = "YW55IGNhcm5hbCBwbGVhcw==";
   
-  char buf[256];
-  int i = 0;
-  i = base64_decode(buf, test1);
-  if (i < 0) return 1;
-  buf[i] = 0;
-  printf("%s\n", buf);
-
-  i = base64_decode(buf, test2);
-  if (i < 0) return 1;
-  buf[i] = 0;
-  printf("%s\n", buf);
-
-  i = base64_decode(buf, test3);
-  if (i < 0) return 1;
-  buf[i] = 0;
-  printf("%s\n", buf);
-
-  i = base64_decode(buf, test4);
-  if (i < 0) return 1;
-  buf[i] = 0;
-  printf("%s\n", buf);
-
   return 0;
 }
