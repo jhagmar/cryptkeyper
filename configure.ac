@@ -30,6 +30,7 @@ AC_TYPE_INT32_T
 AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_SIZE_T
+AX_C_BIGENDIAN_CROSS
 
 # Checks for library functions.
 #AC_SEARCH_LIBS([fopen], [libc])

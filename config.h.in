@@ -1,5 +1,8 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
+#undef BYTEORDER
+
 /* Algorithm AES in gcrypt library */
 #undef GCRYPT_WITH_AES
 
@@ -154,6 +157,9 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* whether byteorder is bigendian */
+#undef WORDS_BIGENDIAN
 
 /* Define for Solaris 2.5.1 so the uint32_t typedef from <sys/synch.h>,
    <pthread.h>, or <semaphore.h> is not used. If the typedef were allowed, the

@@ -24,7 +24,11 @@ D. J. Bernstein
 Public domain.
 */
 
+#ifdef HAVE_CONFIG_H
 #include <config.h>
+#else
+#error No config.h available
+#endif
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
@@ -32,6 +36,18 @@ Public domain.
 #error No stdint.h available
 #endif
 #include "salsa20.h"
+
+#if ((BYTEORDER != 1234) && (BYTEORDER != 4321))
+#error Endianness unknown. Define BYTEORDER to 1234 or 4321.
+#endif
+
+#define TOGGLE_ENDIAN(out, t, in) {	\
+	((uint8_t *)&t)[3] = ((uint8_t *)&in)[0];	\
+	((uint8_t *)&t)[2] = ((uint8_t *)&in)[1];	\
+	((uint8_t *)&t)[1] = ((uint8_t *)&in)[2];	\
+	((uint8_t *)&t)[0] = ((uint8_t *)&in)[3];	\
+	out = t;									\
+}
 
 #define ROTL(v,n) ((v << n) | (v >> (32 - n)))
 
@@ -75,9 +91,27 @@ Public domain.
 static void salsa20_wordtobyte(uint8_t output[64], uint32_t const input[16])
 {
   uint32_t x[16];
+  uint32_t in[16];
+  uint32_t *out = (uint32_t*)output;
+  uint32_t t;
   int i;
 
-  for (i = 0;i < 16;++i) x[i] = input[i];
+  x[0] = in[0] = input[0];
+  x[1] = in[1] = input[1];
+  x[2] = in[2] = input[2];
+  x[3] = in[3] = input[3];
+  x[4] = in[4] = input[4];
+  x[5] = in[5] = input[5];
+  x[6] = in[6] = input[6];
+  x[7] = in[7] = input[7];
+  x[8] = in[8] = input[8];
+  x[9] = in[9] = input[9];
+  x[10] = in[10] = input[10];
+  x[11] = in[11] = input[11];
+  x[12] = in[12] = input[12];
+  x[13] = in[13] = input[13];
+  x[14] = in[14] = input[14];
+  x[15] = in[15] = input[15];
 
   DOUBLEROUND;
   DOUBLEROUND;
@@ -90,8 +124,58 @@ static void salsa20_wordtobyte(uint8_t output[64], uint32_t const input[16])
   DOUBLEROUND;
   DOUBLEROUND;
 
-  for (i = 0;i < 16;++i) x[i] += input[i];
-  for (i = 0;i < 16;++i) U32TO8_LITTLE(output + 4 * i,x[i]);
+  x[0] += in[0];
+  x[1] += in[1];
+  x[2] += in[2];
+  x[3] += in[3];
+  x[4] += in[4];
+  x[5] += in[5];
+  x[6] += in[6];
+  x[7] += in[7];
+  x[8] += in[8];
+  x[9] += in[9];
+  x[10] += in[10];
+  x[11] += in[11];
+  x[12] += in[12];
+  x[13] += in[13];
+  x[14] += in[14];
+  x[15] += in[15];
+
+#if (BYTEORDER == 1234)
+  out[0] = x[0];
+    out[1] = x[1];
+    out[2] = x[2];
+    out[3] = x[3];
+    out[4] = x[4];
+    out[5] = x[5];
+    out[6] = x[6];
+    out[7] = x[7];
+    out[8] = x[8];
+    out[9] = x[9];
+    out[10] = x[10];
+    out[11] = x[11];
+    out[12] = x[12];
+    out[13] = x[13];
+    out[14] = x[14];
+    out[15] = x[15];
+#else
+  TOGGLE_ENDIAN(out[0], t, x[0]);
+  TOGGLE_ENDIAN(out[1], t, x[1]);
+  TOGGLE_ENDIAN(out[2], t, x[2]);
+  TOGGLE_ENDIAN(out[3], t, x[3]);
+  TOGGLE_ENDIAN(out[4], t, x[4]);
+  TOGGLE_ENDIAN(out[5], t, x[5]);
+  TOGGLE_ENDIAN(out[6], t, x[6]);
+  TOGGLE_ENDIAN(out[7], t, x[7]);
+  TOGGLE_ENDIAN(out[8], t, x[8]);
+  TOGGLE_ENDIAN(out[9], t, x[9]);
+  TOGGLE_ENDIAN(out[10], t, x[10]);
+  TOGGLE_ENDIAN(out[11], t, x[11]);
+  TOGGLE_ENDIAN(out[12], t, x[12]);
+  TOGGLE_ENDIAN(out[13], t, x[13]);
+  TOGGLE_ENDIAN(out[14], t, x[14]);
+  TOGGLE_ENDIAN(out[15], t, x[15]);
+#endif
 }
 
 static const char sigma[16] = "expand 32-byte k";
