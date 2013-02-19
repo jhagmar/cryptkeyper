@@ -51,8 +51,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-check_PROGRAMS = base64_test$(EXEEXT)
-TESTS = base64_test$(EXEEXT)
+check_PROGRAMS = base64_test$(EXEEXT) salsa20_test$(EXEEXT)
+TESTS = base64_test$(EXEEXT) salsa20_test$(EXEEXT)
 subdir = libcx9r
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -106,6 +106,9 @@ libcx9r_la_OBJECTS = $(am_libcx9r_la_OBJECTS)
 am_base64_test_OBJECTS = base64_test.$(OBJEXT) base64.$(OBJEXT)
 base64_test_OBJECTS = $(am_base64_test_OBJECTS)
 base64_test_LDADD = $(LDADD)
+am_salsa20_test_OBJECTS = salsa20_test.$(OBJEXT) salsa20.$(OBJEXT)
+salsa20_test_OBJECTS = $(am_salsa20_test_OBJECTS)
+salsa20_test_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -119,8 +122,10 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libcx9r_la_SOURCES) $(base64_test_SOURCES)
-DIST_SOURCES = $(libcx9r_la_SOURCES) $(base64_test_SOURCES)
+SOURCES = $(libcx9r_la_SOURCES) $(base64_test_SOURCES) \
+	$(salsa20_test_SOURCES)
+DIST_SOURCES = $(libcx9r_la_SOURCES) $(base64_test_SOURCES) \
+	$(salsa20_test_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -254,6 +259,7 @@ libcx9r_la_SOURCES = kdbx.c sha256.h sha256.c aes256.h aes256.c stream.c util.h 
 libcx9r_la_CPPFLAGS = -I$(top_srcdir)/include $(GCRYPT_CFLAGS)
 libcx9r_la_LIBADD = $(GCRYPT_LIBS)
 base64_test_SOURCES = base64_test.c base64.c base64.h
+salsa20_test_SOURCES = salsa20_test.c salsa20.c salsa20.h
 all: all-am
 
 .SUFFIXES:
@@ -334,6 +340,9 @@ clean-checkPROGRAMS:
 base64_test$(EXEEXT): $(base64_test_OBJECTS) $(base64_test_DEPENDENCIES) $(EXTRA_base64_test_DEPENDENCIES) 
 	@rm -f base64_test$(EXEEXT)
 	$(LINK) $(base64_test_OBJECTS) $(base64_test_LDADD) $(LIBS)
+salsa20_test$(EXEEXT): $(salsa20_test_OBJECTS) $(salsa20_test_DEPENDENCIES) $(EXTRA_salsa20_test_DEPENDENCIES) 
+	@rm -f salsa20_test$(EXEEXT)
+	$(LINK) $(salsa20_test_OBJECTS) $(salsa20_test_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -350,6 +359,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcx9r_la-sha256.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcx9r_la-stream.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcx9r_la-util.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/salsa20.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/salsa20_test.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

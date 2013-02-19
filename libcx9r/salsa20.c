@@ -31,16 +31,36 @@ Public domain.
 #else
 #error No stdint.h available
 #endif
+#include "salsa20.h"
 
 #define ROTL(v,n) ((v << n) | (v >> (32 - n)))
 
-#define F(r1, r2, r3, n) r1 ^= ROTL32( (r2 + r3), n )
+#define F(n1, n2, n3, n) x[n1] ^= ROTL( (x[n2] + x[n3]), n )
 
-#define QUARTERROUND(n1, n2, n3, n4) {  \
-	F(x[n1], x[n4], x[n3], 7); 	\
-	F(x[n2], x[n1], x[n4], 9);	\
-	F(x[n3], x[n2], x[n1], 13);	\
-	F(x[n4], x[n3], x[n2], 18);  \
+#define QUARTERROUND(n0, n1, n2, n3) { \
+	F(n1, n0, n3, 7);	\
+	F(n2, n1, n0, 9);	\
+	F(n3, n2, n1, 13);	\
+	F(n0, n3, n2, 18);  \
+}
+
+#define COLUMNROUND {				\
+	QUARTERROUND( 0,  4,  8, 12);	\
+	QUARTERROUND( 5,  9, 13,  1);	\
+	QUARTERROUND(10, 14,  2,  6);	\
+	QUARTERROUND(15,  3,  7, 11);	\
+}
+
+#define ROWROUND {				\
+	QUARTERROUND( 0,  1,  2,  3);	\
+	QUARTERROUND( 5,  6,  7,  4);	\
+	QUARTERROUND(10, 11,  8,  9);	\
+	QUARTERROUND(15, 12, 13, 14);	\
+}
+
+#define DOUBLEROUND {			\
+	COLUMNROUND;				\
+	ROWROUND;					\
 }
 
 #define U32TO8_LITTLE(out, in) { \
@@ -52,102 +72,94 @@ Public domain.
 
 #define U8TO32_LITTLE(in) (in)[0] | ((in)[1] << 8) | ((in)[2] << 16) | ((in)[3] << 24);
 
-typedef struct {
-	uint32_t input[16];
-} ECRYPT_ctx;
-
 static void salsa20_wordtobyte(uint8_t output[64], uint32_t const input[16])
 {
   uint32_t x[16];
   int i;
 
   for (i = 0;i < 16;++i) x[i] = input[i];
-  for (i = 20;i > 0;i -= 2) {
-	  QUARTERROUND( 4,  8, 12,  0);
-	  QUARTERROUND( 9, 13,  1,  5);
-	  QUARTERROUND(14,  2,  6, 10);
-	  QUARTERROUND( 3,  7, 11, 15);
-	  QUARTERROUND( 1,  2,  3,  0);
-	  QUARTERROUND( 6,  7,  4,  5);
-	  QUARTERROUND(11,  8,  9, 10);
-	  QUARTERROUND(12, 13, 14, 15);
-  }
+
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+  DOUBLEROUND;
+
   for (i = 0;i < 16;++i) x[i] += input[i];
   for (i = 0;i < 16;++i) U32TO8_LITTLE(output + 4 * i,x[i]);
-}
-
-void ECRYPT_init(void)
-{
-  return;
 }
 
 static const char sigma[16] = "expand 32-byte k";
 static const char tau[16] = "expand 16-byte k";
 
-void ECRYPT_keysetup(ECRYPT_ctx *x,const uint8_t *k,uint32_t kbits,uint32_t ivbits)
+void cx9r_salsa20_init(cx9r_salsa20_ctx *x, const uint8_t *key,
+		uint32_t n_key_bits, const uint8_t *iv)
 {
   const char *constants;
 
-  x->input[1] = U8TO32_LITTLE(k + 0);
-  x->input[2] = U8TO32_LITTLE(k + 4);
-  x->input[3] = U8TO32_LITTLE(k + 8);
-  x->input[4] = U8TO32_LITTLE(k + 12);
-  if (kbits == 256) { /* recommended */
-    k += 16;
+  x->input[1] = U8TO32_LITTLE(key + 0);
+  x->input[2] = U8TO32_LITTLE(key + 4);
+  x->input[3] = U8TO32_LITTLE(key + 8);
+  x->input[4] = U8TO32_LITTLE(key + 12);
+  if (n_key_bits == 256) { /* recommended */
+    key += 16;
     constants = sigma;
   } else { /* kbits == 128 */
     constants = tau;
   }
-  x->input[11] = U8TO32_LITTLE(k + 0);
-  x->input[12] = U8TO32_LITTLE(k + 4);
-  x->input[13] = U8TO32_LITTLE(k + 8);
-  x->input[14] = U8TO32_LITTLE(k + 12);
+  x->input[11] = U8TO32_LITTLE(key + 0);
+  x->input[12] = U8TO32_LITTLE(key + 4);
+  x->input[13] = U8TO32_LITTLE(key + 8);
+  x->input[14] = U8TO32_LITTLE(key + 12);
   x->input[0] = U8TO32_LITTLE(constants + 0);
   x->input[5] = U8TO32_LITTLE(constants + 4);
   x->input[10] = U8TO32_LITTLE(constants + 8);
   x->input[15] = U8TO32_LITTLE(constants + 12);
-}
-
-void ECRYPT_ivsetup(ECRYPT_ctx *x,const uint8_t *iv)
-{
   x->input[6] = U8TO32_LITTLE(iv + 0);
   x->input[7] = U8TO32_LITTLE(iv + 4);
   x->input[8] = 0;
   x->input[9] = 0;
 }
 
-void ECRYPT_encrypt_bytes(ECRYPT_ctx *x,const uint8_t *m,uint8_t *c,uint32_t bytes)
+void cx9r_salsa20_encrypt(cx9r_salsa20_ctx *x,const uint8_t *input,
+		uint8_t *output,uint32_t length)
 {
-  uint8_t output[64];
+  uint8_t buffer[64];
   int i;
 
-  if (!bytes) return;
+  if (!length) return;
   for (;;) {
-    salsa20_wordtobyte(output,x->input);
+    salsa20_wordtobyte(buffer,x->input);
     x->input[8]++;
     if (!x->input[8]) {
       x->input[9]++;
       /* stopping at 2^70 bytes per nonce is user's responsibility */
     }
-    if (bytes <= 64) {
-      for (i = 0;i < bytes;++i) c[i] = m[i] ^ output[i];
+    if (length <= 64) {
+      for (i = 0;i < length;++i) output[i] = input[i] ^ buffer[i];
       return;
     }
-    for (i = 0;i < 64;++i) c[i] = m[i] ^ output[i];
-    bytes -= 64;
-    c += 64;
-    m += 64;
+    for (i = 0;i < 64;++i) output[i] = input[i] ^ buffer[i];
+    length -= 64;
+    output += 64;
+    input += 64;
   }
 }
 
-void ECRYPT_decrypt_bytes(ECRYPT_ctx *x,const uint8_t *c,uint8_t *m,uint32_t bytes)
+void cx9r_salsa20_decrypt(cx9r_salsa20_ctx *ctx, const uint8_t *input,
+		uint8_t *output, uint32_t length)
 {
-  ECRYPT_encrypt_bytes(x,c,m,bytes);
+	cx9r_salsa20_encrypt(ctx, input, output, length);
 }
 
-void ECRYPT_keystream_bytes(ECRYPT_ctx *x,uint8_t *stream,uint32_t bytes)
+void cx9r_salsa20_keystream(cx9r_salsa20_ctx *ctx, uint8_t *output, uint32_t length)
 {
   uint32_t i;
-  for (i = 0;i < bytes;++i) stream[i] = 0;
-  ECRYPT_encrypt_bytes(x,stream,stream,bytes);
+  for (i = 0; i < length; ++i) output[i] = 0;
+  cx9r_salsa20_encrypt(ctx, output, output, length);
 }
