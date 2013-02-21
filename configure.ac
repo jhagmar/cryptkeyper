@@ -10,6 +10,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 AC_PROG_CC
+AC_PROG_CXX
 AC_PROG_LIBTOOL
 AM_PROG_CC_C_O
 
@@ -17,6 +18,7 @@ AM_PROG_CC_C_O
 #AM_PATH_LIBGCRYPT
 AX_LIB_GCRYPT([yes])
 AX_CHECK_ZLIB
+AX_LIB_EXPAT([2.0.0])
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdio.h])
