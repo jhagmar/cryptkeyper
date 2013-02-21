@@ -20,15 +20,30 @@
 #ifndef CX9R_SALSA20_H
 #define CX9R_SALSA20_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#else
+#error No stdint.h available
+#endif
+
+#define CX9R_SALSA20_STATE_LENGTH_8 64
+#define CX9R_SALSA20_STATE_LENGTH_32 (CX9R_SALSA20_STATE_LENGTH_8/4)
 
 typedef struct {
-	uint32_t input[16];
+	uint32_t state[CX9R_SALSA20_STATE_LENGTH_32];
+	uint8_t output[CX9R_SALSA20_STATE_LENGTH_8];
+	uint8_t pos;
 } cx9r_salsa20_ctx;
 
-void cx9r_salsa20_init(cx9r_salsa20_ctx *x, const uint8_t *key,
-		uint32_t n_key_bits, const uint8_t *iv);
-void cx9r_salsa20_encrypt(cx9r_salsa20_ctx *x,const uint8_t *input,
+void cx9r_salsa20_128_init(cx9r_salsa20_ctx *ctx, const uint8_t *key,
+		const uint8_t *iv);
+void cx9r_salsa20_256_init(cx9r_salsa20_ctx *ctx, const uint8_t *key,
+		const uint8_t *iv);
+void cx9r_salsa20_encrypt(cx9r_salsa20_ctx *ctx,const uint8_t *input,
 		uint8_t *output,uint32_t length);
 void cx9r_salsa20_decrypt(cx9r_salsa20_ctx *ctx, const uint8_t *input,
 		uint8_t *output, uint32_t length);

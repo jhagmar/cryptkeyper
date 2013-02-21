@@ -129,15 +129,6 @@ static cx9r_err kdbx_read_version(cx9r_stream_t *stream) {
 	return err;
 }
 
-static void dbg(void *b, int len) {
-	int i;
-
-	for (i = 0; i < len; i++) {
-		printf("%x ", ((uint8_t *) b)[i]);
-	}
-	printf("\n");
-}
-
 // check a cipher header field for known ciphers
 static int handle_cipher_field(uint16_t size, uint8_t *data) {
 	// TODO check for other ciphers?
