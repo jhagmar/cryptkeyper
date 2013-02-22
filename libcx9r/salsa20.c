@@ -17,12 +17,10 @@
  * along with cryptkeyper. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * Based on:
-salsa20-ref.c version 20051118
-D. J. Bernstein
-Public domain.
-*/
+// Based on salsa20-ref.c version 20051118 by D. J. Bernstein
+// with heavy modifications for optimization, C99-compliant portability,
+// possibility to reuse a context for several calls to encryption
+// functions, etc.
 
 #include "salsa20.h"
 
@@ -70,19 +68,13 @@ Public domain.
 
 #define MIN(x,y) ((x) < (y)) ? (x) : (y)
 
-//#define U32TO8_LITTLE(out, in) { \
-//	(out)[0] = (uint8_t)in; \
-//	(out)[1] = (uint8_t)(in >> 8); \
-//	(out)[2] = (uint8_t)(in >> 16); \
-//	(out)[3] = (uint8_t)(in >> 24); \
-//}
-
 #if (BYTEORDER == 4321)
 #define U8TO32_LITTLE(in) (in)[0] | ((in)[1] << 8) | ((in)[2] << 16) | ((in)[3] << 24);
 #else
 #define U8TO32_LITTLE(in) *((uint32_t*)(in))
 #endif
 
+// generate a block of Salsa20 keystream
 static void salsa20_generate_output(cx9r_salsa20_ctx *ctx) {
 
 	uint32_t *state;

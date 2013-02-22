@@ -33,20 +33,58 @@
 #define CX9R_SALSA20_STATE_LENGTH_8 64
 #define CX9R_SALSA20_STATE_LENGTH_32 (CX9R_SALSA20_STATE_LENGTH_8/4)
 
+/// Salsa20 context
 typedef struct {
 	uint32_t state[CX9R_SALSA20_STATE_LENGTH_32];
 	uint8_t output[CX9R_SALSA20_STATE_LENGTH_8];
 	uint8_t pos;
 } cx9r_salsa20_ctx;
 
+/**
+ * Initialize Salsa20 cipher with 128 bit key.
+ * @param ctx context
+ * @param key 128-bit key
+ * @param iv initial value
+ */
 void cx9r_salsa20_128_init(cx9r_salsa20_ctx *ctx, const uint8_t *key,
 		const uint8_t *iv);
+
+/**
+ * Initialize Salsa20 cipher with 256 bit key.
+ * @param ctx context
+ * @param key 256-bit key
+ * @param iv initial value
+ */
 void cx9r_salsa20_256_init(cx9r_salsa20_ctx *ctx, const uint8_t *key,
 		const uint8_t *iv);
+
+/**
+ * Encrypt data with Salsa20.
+ * @param ctx context
+ * @param input input (unencrypted) data
+ * @param output output (encrypted) data
+ * @param length length of data to process in bytes
+ */
 void cx9r_salsa20_encrypt(cx9r_salsa20_ctx *ctx,const uint8_t *input,
 		uint8_t *output,uint32_t length);
+
+/**
+ * Encrypt data with Salsa20.
+ * @param ctx context
+ * @param input input (encrypted) data
+ * @param output output (unencrypted) data
+ * @param length length of data to process in bytes
+ */
 void cx9r_salsa20_decrypt(cx9r_salsa20_ctx *ctx, const uint8_t *input,
 		uint8_t *output, uint32_t length);
+
+/**
+ * Generate Salsa20 key stream.
+ * This is equivalent to encrypting a stream of zeros.
+ * @param ctx context
+ * @param output key stream
+ * @param length length of data to process in bytes
+  */
 void cx9r_salsa20_keystream(cx9r_salsa20_ctx *ctx, uint8_t *output, uint32_t length);
 
 #endif
