@@ -26,6 +26,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+#ifdef HAVE_EXPAT
+#include <expat.h>
+#else
+#error libexpat is required to build kdbx.c
+#endif
+
 // length of various kdbx file elements
 #define KDBX_MAGIC_LENGTH 8	// length of magic bytes
 #define KDBX_VERSION_LENGTH 4	// length of file version bytes

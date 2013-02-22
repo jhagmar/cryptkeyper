@@ -84,6 +84,9 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
+/* Expat library is available */
+#undef HAVE_EXPAT
+
 /* Gcrypt library is available */
 #undef HAVE_GCRYPT
 

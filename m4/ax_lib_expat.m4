@@ -127,14 +127,17 @@ AC_DEFUN([AX_LIB_EXPAT],
         CPPFLAGS="$CPPFLAGS -I$expat_include_dir"
 
         saved_LDFLAGS="$LDFLAGS"
-        LIBS="$LDFLAGS $expat_lib_flags"
+        LDFLAGS="$LDFLAGS $expat_lib_flags"
+        
+        saved_LIBS="$LIBS"
+        LIBS="$LIBS -lexpat"
 
         dnl
         dnl Check Expat headers
         dnl
         AC_MSG_CHECKING([for Expat XML Parser headers in $expat_include_dir])
 
-        AC_LANG_PUSH([C++])
+        AC_LANG_PUSH([C])
         AC_COMPILE_IFELSE([
             AC_LANG_PROGRAM(
                 [[
@@ -152,7 +155,7 @@ AC_DEFUN([AX_LIB_EXPAT],
             AC_MSG_RESULT([not found])
             ]
         )
-        AC_LANG_POP([C++])
+        AC_LANG_POP([C])
 
         dnl
         dnl Check Expat libraries
@@ -161,7 +164,7 @@ AC_DEFUN([AX_LIB_EXPAT],
 
             AC_MSG_CHECKING([for Expat XML Parser libraries])
 
-            AC_LANG_PUSH([C++])
+            AC_LANG_PUSH([C])
             AC_LINK_IFELSE([
                 AC_LANG_PROGRAM(
                     [[
@@ -183,11 +186,12 @@ p = NULL;
                 AC_MSG_RESULT([not found])
                 ]
             )
-            AC_LANG_POP([C++])
+            AC_LANG_POP([C])
         fi
 
         CPPFLAGS="$saved_CPPFLAGS"
         LDFLAGS="$saved_LDFLAGS"
+        LIBS="$saved_LIBS"
     fi
 
     AC_MSG_CHECKING([for Expat XML Parser])
@@ -255,11 +259,13 @@ p = NULL;
                         AC_MSG_RESULT([yes])
                     else
                         AC_MSG_RESULT([no])
-                        AC_MSG_WARN([Found Expat XML Parser $EXPAT_VERSION, which is older than required. Possible compilation failure.])
+                        AC_MSG_ERROR([Found Expat XML Parser $EXPAT_VERSION, which is older than required. Possible compilation failure.])
+                        HAVE_EXPAT = "no"
                     fi
                 else
                     AC_MSG_RESULT([no])
-                    AC_MSG_WARN([Missing expat.h header. Unable to determine Expat version.])
+                    AC_MSG_ERROR([Missing expat.h header. Unable to determine Expat version.])
+                    HAVE_EXPAT = "no"
                 fi
             fi
         fi
@@ -269,7 +275,12 @@ p = NULL;
         AC_MSG_RESULT([$HAVE_EXPAT])
 
         if test "$expat_requested" = "yes"; then
-            AC_MSG_WARN([Expat XML Parser support requested but headers or library not found. Specify valid prefix of Expat using --with-expat=@<:@DIR@:>@ or provide include directory and linker flags using --with-expat-inc and --with-expat-lib])
+            AC_MSG_ERROR([Expat XML Parser support requested but headers or library not found. Specify valid prefix of Expat using --with-expat=@<:@DIR@:>@ or provide include directory and linker flags using --with-expat-inc and --with-expat-lib])
         fi
+    fi
+    if test "$HAVE_EXPAT" = "yes"; then
+    
+    	AC_DEFINE([HAVE_EXPAT],[1],[Expat library is available])
+    	
     fi
 ])
