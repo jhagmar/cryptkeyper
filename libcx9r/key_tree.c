@@ -90,20 +90,22 @@ char const *cx9r_kt_group_get_name(cx9r_kt_group const *ktg) {
 	return ktg->name;
 }
 
-char const *cx9r_kt_group_set_name(cx9r_kt_group *ktg, char const *name) {
-	size_t length;
-
-	length = strlen(name) + 1;
+char const *cx9r_kt_group_set_name(cx9r_kt_group *ktg, char const *name, size_t length) {
 	if (ktg->name != NULL) {
 		free(ktg->name);
 		ktg->name = NULL;
 	}
-	ktg->name = malloc(length);
+	ktg->name = malloc(length + 1);
 	if (ktg->name == NULL) {
 		return NULL;
 	}
-	strcpy(ktg->name, name);
+	strncpy(ktg->name, name, length);
+	ktg->name[length] = NULL;
 	return ktg->name;
+}
+
+char const *cx9r_kt_group_set_zname(cx9r_kt_group *ktg, char const *name) {
+	return cx9r_kt_group_set_name(ktg, name, strlen(name));
 }
 
 cx9r_kt_group *cx9r_kt_group_add_child(cx9r_kt_group *ktg) {
@@ -162,20 +164,26 @@ char const *cx9r_kt_entry_get_name(cx9r_kt_entry *kte) {
 	return kte->name;
 }
 
-char const *cx9r_kt_entry_set_name(cx9r_kt_entry *kte, char const *name) {
-	size_t length;
+char const *cx9r_kt_entry_set_name(cx9r_kt_entry *kte, char const *name, size_t length) {
+	if (length < 0) {
+		length = strlen(name);
+	}
 
-	length = strlen(name) + 1;
 	if (kte->name != NULL) {
 		free(kte->name);
 		kte->name = NULL;
 	}
-	kte->name = malloc(length);
+	kte->name = malloc(length + 1);
 	if (kte->name == NULL) {
 		return NULL;
 	}
-	strcpy(kte->name, name);
+	strncpy(kte->name, name, length);
+	kte->name[length] = 0;
 	return kte->name;
+}
+
+char const *cx9r_kt_entry_set_zname(cx9r_kt_entry *kte, char const *name) {
+	return cx9r_kt_entry_set_name(kte, name, strlen(name));
 }
 
 cx9r_kt_field *cx9r_kt_entry_get_fields(cx9r_kt_entry *kte) {
@@ -215,41 +223,44 @@ char const *cx9r_kt_field_get_name(cx9r_kt_field *ktf) {
 	return ktf->name;
 }
 
-char const *cx9r_kt_field_set_name(cx9r_kt_field *ktf, char const *name) {
-	size_t length;
-
-	length = strlen(name) + 1;
+char const *cx9r_kt_field_set_name(cx9r_kt_field *ktf, char const *name, size_t length) {
 	if (ktf->name != NULL) {
 		free(ktf->name);
 		ktf->name = NULL;
 	}
-	ktf->name = malloc(length);
+	ktf->name = malloc(length + 1);
 	if (ktf->name == NULL) {
 		return NULL;
 	}
-	strcpy(ktf->name, name);
+	strncpy(ktf->name, name, length);
+	ktf->name[length] = NULL;
 	return ktf->name;
+}
+
+char const *cx9r_kt_field_set_zname(cx9r_kt_field *ktf, char const *name) {
+	return cx9r_kt_field_set_name(ktf, name, strlen(name));
 }
 
 char const *cx9r_kt_field_get_value(cx9r_kt_field *ktf) {
 	return ktf->value;
 }
 
-char const *cx9r_kt_field_set_value(cx9r_kt_field *ktf, char const *value) {
-	size_t length;
-
-	length = strlen(value) + 1;
+char const *cx9r_kt_field_set_value(cx9r_kt_field *ktf, char const *value, size_t length) {
 	if (ktf->value != NULL) {
 		free(ktf->value);
 		ktf->value = NULL;
 	}
-	ktf->value = malloc(length);
+	ktf->value = malloc(length + 1);
 	if (ktf->value == NULL) {
 		return NULL;
 	}
-	strcpy(ktf->value, value);
+	strncpy(ktf->value, value, length);
+	ktf->value[length] = NULL;
 	return ktf->value;
+}
 
+char const *cx9r_kt_field_set_zvalue(cx9r_kt_field *ktf, char const *value) {
+	return cx9r_kt_field_set_value(ktf, value, strlen(value));
 }
 
 cx9r_kt_field *cx9r_kt_field_get_next(cx9r_kt_field *ktf) {

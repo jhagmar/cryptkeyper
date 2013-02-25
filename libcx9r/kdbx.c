@@ -424,6 +424,62 @@ bail:
 
 }
 
+static void start_element_handler(void *userData,
+		const XML_Char *name,
+		const XML_Char **atts) {
+
+	if (strcmp(name, "Entry") == 0) {
+		printf("Entry!\n");
+	}
+
+}
+
+static void end_element_handler(void *userData,
+		const XML_Char *name) {
+
+	if (strcmp(name, "Entry") == 0) {
+		printf("Entry...\n");
+	}
+}
+
+static void character_data_handler(void *userData,
+		const XML_Char *s,
+		int len) {
+
+	if (len == 3000) {
+		printf("Len!\n");
+	}
+
+}
+
+static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
+	cx9r_err err = CX9R_OK;
+	XML_Parser parser;
+	size_t n;
+	uint8_t buf[1027];
+
+	CHECK(((parser = XML_ParserCreate(NULL)) != NULL), err,
+			CX9R_MEM_ALLOC_ERR, bail);
+
+	XML_SetElementHandler(parser, start_element_handler, end_element_handler);
+
+	XML_SetCharacterDataHandler(parser, character_data_handler);
+
+	while (!cx9r_seof(stream)) {
+		n = cx9r_sread(buf, 1, 1027, stream);
+		XML_Parse(parser, buf, n, 0);
+	}
+	XML_Parse(parser, buf, 0, 1);
+
+dealloc_parser:
+
+	XML_ParserFree(parser);
+
+bail:
+
+	return err;
+}
+
 cx9r_err cx9r_init() {
 	if (!gcry_check_version("1.2.0")) {
 		//fputs("libgcrypt version mismatch\n", stderr);
@@ -475,14 +531,15 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 		stream = gzip_stream;
 	}
 
-	o = fopen("raw.xml", "w");
-
-	while (!cx9r_seof(stream)) {
-		n = cx9r_sread(buf, 1, 1027, stream);
-		fwrite(buf, 1, n, o);
-	}
-
-	fclose(o);
+//	o = fopen("raw.xml", "w");
+//
+//	while (!cx9r_seof(stream)) {
+//		n = cx9r_sread(buf, 1, 1027, stream);
+//		fwrite(buf, 1, n, o);
+//	}
+//
+//	fclose(o);
+	parse_xml(stream, ctx);
 
 cleanup_ctx:
 	ctx_free(ctx);

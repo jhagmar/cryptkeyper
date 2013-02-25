@@ -20,6 +20,8 @@
 #ifndef CX9R_KEY_TREE_H
 #define CX9R_KEY_TREE_H
 
+#include <stdlib.h>
+
 typedef struct cx9r_ktf cx9r_kt_field;
 
 struct cx9r_ktf {
@@ -57,20 +59,24 @@ cx9r_kt_group *cx9r_kt_group_get_children(cx9r_kt_group const *ktg);
 cx9r_kt_group *cx9r_kt_group_get_next(cx9r_kt_group const *ktg);
 cx9r_kt_entry *cx9r_kt_group_get_entries(cx9r_kt_group const *ktg);
 char const *cx9r_kt_group_get_name(cx9r_kt_group const *ktg);
-char const *cx9r_kt_group_set_name(cx9r_kt_group *ktg, char const *name);
+char const *cx9r_kt_group_set_name(cx9r_kt_group *ktg, char const *name, size_t length);
+char const *cx9r_kt_group_set_zname(cx9r_kt_group *ktg, char const *name);
 cx9r_kt_group *cx9r_kt_group_add_child(cx9r_kt_group *ktg);
 cx9r_kt_entry *cx9r_kt_group_add_entry(cx9r_kt_group *ktg);
 
 char const *cx9r_kt_entry_get_name(cx9r_kt_entry *kte);
-char const *cx9r_kt_entry_set_name(cx9r_kt_entry *kte, char const *name);
+char const *cx9r_kt_entry_set_name(cx9r_kt_entry *kte, char const *name, size_t length);
+char const *cx9r_kt_entry_set_zname(cx9r_kt_entry *kte, char const *name);
 cx9r_kt_field *cx9r_kt_entry_get_fields(cx9r_kt_entry *kte);
 cx9r_kt_field *cx9r_kt_entry_add_field(cx9r_kt_entry *kte);
 cx9r_kt_entry *cx9r_kt_entry_get_next(cx9r_kt_entry *kte);
 
 char const *cx9r_kt_field_get_name(cx9r_kt_field *ktf);
-char const *cx9r_kt_field_set_name(cx9r_kt_field *ktf, char const *name);
+char const *cx9r_kt_field_set_name(cx9r_kt_field *ktf, char const *name, size_t length);
+char const *cx9r_kt_field_set_zname(cx9r_kt_field *ktf, char const *name);
 char const *cx9r_kt_field_get_value(cx9r_kt_field *ktf);
-char const *cx9r_kt_field_set_value(cx9r_kt_field *ktf, char const *value);
+char const *cx9r_kt_field_set_value(cx9r_kt_field *ktf, char const *value, size_t length);
+char const *cx9r_kt_field_set_zvalue(cx9r_kt_field *ktf, char const *value);
 cx9r_kt_field *cx9r_kt_field_get_next(cx9r_kt_field *ktf);
 
 #endif

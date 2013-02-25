@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define TEST_LENGTH 5
+
 static char const test1[] = "test1";
 static char const test2[] = "test2";
 
@@ -53,14 +55,14 @@ int main() {
 	if (c == NULL) goto dealloc_tree;
 	s = cx9r_kt_group_get_name(c);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_group_set_name(c, test1);
+	s = cx9r_kt_group_set_zname(c, test1);
 	if (s == NULL) goto dealloc_tree;
 	// add another
 	c = cx9r_kt_group_add_child(g);
 	if (c == NULL) goto dealloc_tree;
 	s = cx9r_kt_group_get_name(c);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_group_set_name(c, test2);
+	s = cx9r_kt_group_set_name(c, test2, TEST_LENGTH);
 	if (s == NULL) goto dealloc_tree;
 
 	//retrieve the child groups and check their names
@@ -89,14 +91,14 @@ int main() {
 	if (e == NULL) goto dealloc_tree;
 	s = cx9r_kt_entry_get_name(e);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_entry_set_name(e, test1);
+	s = cx9r_kt_entry_set_zname(e, test1);
 	if (s == NULL) goto dealloc_tree;
 	// create another (sibling) entry
 	e = cx9r_kt_group_add_entry(g);
 	if (e == NULL) goto dealloc_tree;
 	s = cx9r_kt_entry_get_name(e);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_entry_set_name(e, test2);
+	s = cx9r_kt_entry_set_name(e, test2, TEST_LENGTH);
 	if (s == NULL) goto dealloc_tree;
 	// retrieve the entries and check their names
 	e = cx9r_kt_group_get_entries(g);
@@ -125,22 +127,22 @@ int main() {
 	if (f == NULL) goto dealloc_tree;
 	s = cx9r_kt_field_get_name(f);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_field_set_name(f, test1);
+	s = cx9r_kt_field_set_zname(f, test1);
 	if (s == NULL) goto dealloc_tree;
 	s = cx9r_kt_field_get_value(f);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_field_set_value(f, test2);
+	s = cx9r_kt_field_set_zvalue(f, test2);
 	if (s == NULL) goto dealloc_tree;
 	// add another field
 	f = cx9r_kt_entry_add_field(e);
 	if (f == NULL) goto dealloc_tree;
 	s = cx9r_kt_field_get_name(f);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_field_set_name(f, test2);
+	s = cx9r_kt_field_set_name(f, test2, TEST_LENGTH);
 	if (s == NULL) goto dealloc_tree;
 	s = cx9r_kt_field_get_value(f);
 	if (s != NULL) goto dealloc_tree;
-	s = cx9r_kt_field_set_value(f, test1);
+	s = cx9r_kt_field_set_value(f, test1, TEST_LENGTH);
 	if (s == NULL) goto dealloc_tree;
 
 	// check fields

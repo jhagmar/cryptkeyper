@@ -101,7 +101,7 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-libcx9r_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
+libcx9r_la_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_libcx9r_la_OBJECTS = libcx9r_la-kdbx.lo libcx9r_la-sha256.lo \
 	libcx9r_la-aes256.lo libcx9r_la-stream.lo libcx9r_la-util.lo \
 	libcx9r_la-base64.lo libcx9r_la-salsa20.lo \
@@ -266,8 +266,8 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libcx9r.la
 libcx9r_la_SOURCES = kdbx.c sha256.h sha256.c aes256.h aes256.c stream.c util.h util.c base64.c base64.h salsa20.c key_tree.c key_tree.h
-libcx9r_la_CPPFLAGS = -I$(top_srcdir)/include $(GCRYPT_CFLAGS)
-libcx9r_la_LIBADD = $(GCRYPT_LIBS)
+libcx9r_la_CPPFLAGS = -I$(top_srcdir)/include $(GCRYPT_CFLAGS) $(EXPAT_CFLAGS)
+libcx9r_la_LIBADD = $(GCRYPT_LIBS) $(EXPAT_LIBS)
 base64_test_SOURCES = base64_test.c base64.c base64.h
 salsa20_test_SOURCES = salsa20_test.c salsa20.c salsa20.h
 key_tree_test_SOURCES = key_tree_test.c key_tree.c key_tree.h
