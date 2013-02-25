@@ -68,6 +68,7 @@ void cx9r_key_tree_free(cx9r_key_tree *kt) {
 	group_free(kt->root.children);
 	entry_free(kt->root.entries);
 	free(kt->root.name);
+	free(kt);
 }
 
 cx9r_kt_group *cx9r_key_tree_get_root(cx9r_key_tree *kt) {
