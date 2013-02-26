@@ -28,6 +28,7 @@ cx9r_key_tree *cx9r_key_tree_create() {
 		return NULL;
 	}
 
+	kt->root.parent = NULL;
 	kt->root.children = NULL;
 	kt->root.next = NULL;
 	kt->root.entries = NULL;
@@ -73,6 +74,10 @@ void cx9r_key_tree_free(cx9r_key_tree *kt) {
 
 cx9r_kt_group *cx9r_key_tree_get_root(cx9r_key_tree *kt) {
 	return &kt->root;
+}
+
+cx9r_kt_group *cx9r_kt_group_get_parent(cx9r_kt_group const *ktg) {
+	return ktg->parent;
 }
 
 cx9r_kt_group *cx9r_kt_group_get_children(cx9r_kt_group const *ktg) {
@@ -128,6 +133,7 @@ cx9r_kt_group *cx9r_kt_group_add_child(cx9r_kt_group *ktg) {
 	}
 
 	c->name = NULL;
+	c->parent = ktg;
 	c->children = NULL;
 	c->entries = NULL;
 	c->next = NULL;

@@ -21,6 +21,7 @@
 #include <stream.h>
 #include "sha256.h"
 #include "aes256.h"
+#include "key_tree.h"
 #include "util.h"
 #include <string.h>
 #include <stdint.h>
@@ -424,21 +425,89 @@ bail:
 
 }
 
+enum parse_state_enum {
+	IN_TOP,
+	IN_ROOT,
+	IN_GROUP,
+	IN_ENTRY,
+	IN_HISTORY,
+	IN_FIELD,
+	IN_KEY,
+	IN_VALUE
+};
+
+typedef enum parse_state_enum parse_state;
+
+typedef struct parse_data_struct parse_data;
+
+struct parse_data_struct {
+	parse_state state;
+	void *kt_element;
+	parse_data *prev;
+	parse_data *next;
+};
+
+typedef struct user_data_struct user_data;
+
+struct user_data_struct {
+	parse_data *stack_top;
+	XML_Parser parser;
+};
+
+// not a pure pop - pops all elements above data
+static parse_data *parse_data_pop(parse_data *data) {
+	parse_data *prev;
+	if (data->next != NULL) {
+		parse_data_pop(data->next);
+	}
+	prev = data->prev;
+	free(data);
+	return prev;
+}
+
+// not a pure push - creates a new parse_data and pushes it onto data
+static parse_data *parse_data_push(parse_data *top) {
+	parse_data *pd;
+
+	pd = malloc(sizeof(parse_data));
+	if (pd == NULL) return NULL;
+
+	pd->prev = top;
+	pd->next = NULL;
+	return pd;
+}
+
+static char const root_tag[] = "Root";
+static char const entry_tag[] = "Entry";
+
 static void start_element_handler(void *userData,
 		const XML_Char *name,
 		const XML_Char **atts) {
+	user_data *ud;
 
-	if (strcmp(name, "Entry") == 0) {
-		printf("Entry!\n");
+	ud = (user_data*)userData;
+	if (ud->stack_top == NULL) return;
+
+	if (strcmp(name, root_tag) == 0) {
+		ud->stack_top = parse_data_push(ud->stack_top);
+		if (ud->stack_top == NULL) {
+			XML_StopParser(ud->parser, XML_FALSE);
+			return;
+		}
+		ud->stack_top->state = IN_ROOT;
 	}
 
 }
 
 static void end_element_handler(void *userData,
 		const XML_Char *name) {
+	user_data *ud;
 
-	if (strcmp(name, "Entry") == 0) {
-		printf("Entry...\n");
+	ud = (user_data*)userData;
+	if (ud->stack_top == NULL) return;
+
+	if (strcmp(name, root_tag) == 0) {
+		ud->stack_top = parse_data_pop(ud->stack_top);
 	}
 }
 
@@ -457,9 +526,20 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	XML_Parser parser;
 	size_t n;
 	uint8_t buf[1027];
+	parse_data *parse_stack;
+	user_data ud;
 
 	CHECK(((parser = XML_ParserCreate(NULL)) != NULL), err,
 			CX9R_MEM_ALLOC_ERR, bail);
+
+	CHECK(((parse_stack = parse_data_push(NULL)) != NULL), err,
+			CX9R_MEM_ALLOC_ERR, dealloc_parser);
+
+	ud.stack_top = parse_stack;
+	ud.parser = parser;
+	parse_stack->state = IN_TOP;
+
+	XML_SetUserData(parser, &ud);
 
 	XML_SetElementHandler(parser, start_element_handler, end_element_handler);
 
@@ -467,9 +547,14 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 
 	while (!cx9r_seof(stream)) {
 		n = cx9r_sread(buf, 1, 1027, stream);
-		XML_Parse(parser, buf, n, 0);
+		CHECK((XML_Parse(parser, buf, n, 0) == XML_STATUS_OK), err,
+				CX9R_PARSE_ERR, dealloc_stack);
 	}
 	XML_Parse(parser, buf, 0, 1);
+
+dealloc_stack:
+
+	parse_data_pop(parse_stack);
 
 dealloc_parser:
 

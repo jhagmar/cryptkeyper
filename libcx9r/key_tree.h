@@ -42,6 +42,7 @@ typedef struct cx9r_ktg cx9r_kt_group;
 
 struct cx9r_ktg {
 	char *name;
+	cx9r_kt_group *parent;
 	cx9r_kt_group *children;
 	cx9r_kt_group *next;
 	cx9r_kt_entry *entries;
@@ -55,6 +56,7 @@ cx9r_key_tree *cx9r_key_tree_create();
 cx9r_kt_group *cx9r_key_tree_get_root(cx9r_key_tree *kt);
 void cx9r_key_tree_free(cx9r_key_tree *kt);
 
+cx9r_kt_group *cx9r_kt_group_get_parent(cx9r_kt_group const *ktg);
 cx9r_kt_group *cx9r_kt_group_get_children(cx9r_kt_group const *ktg);
 cx9r_kt_group *cx9r_kt_group_get_next(cx9r_kt_group const *ktg);
 cx9r_kt_entry *cx9r_kt_group_get_entries(cx9r_kt_group const *ktg);

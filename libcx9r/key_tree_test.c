@@ -45,6 +45,7 @@ int main() {
 	g = cx9r_key_tree_get_root(kt);
 	if (g == NULL) goto dealloc_tree;
 	printf("ok\n");
+	if (cx9r_kt_group_get_parent(g) != NULL) goto dealloc_tree;
 
 	printf("creating groups...");
 	c = cx9r_kt_group_get_children(g);
@@ -68,12 +69,14 @@ int main() {
 	//retrieve the child groups and check their names
 	c = cx9r_kt_group_get_children(g);
 	if (c == NULL) goto dealloc_tree;
+	if (cx9r_kt_group_get_parent(c) != g) goto dealloc_tree;
 	s = cx9r_kt_group_get_name(c);
 	if (s == NULL) goto dealloc_tree;
 	if (strcmp(s, test1) != 0) goto dealloc_tree;
 
 	c = cx9r_kt_group_get_next(c);
 	if (c == NULL) goto dealloc_tree;
+	if (cx9r_kt_group_get_parent(c) != g) goto dealloc_tree;
 	s = cx9r_kt_group_get_name(c);
 	if (s == NULL) goto dealloc_tree;
 	if (strcmp(s, test2) != 0) goto dealloc_tree;
