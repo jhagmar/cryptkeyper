@@ -132,7 +132,6 @@ cx9r_kt_group *cx9r_kt_group_add_child(cx9r_kt_group *ktg) {
 		return NULL;
 	}
 
-	c->name = NULL;
 	c->parent = ktg;
 	c->children = NULL;
 	c->entries = NULL;
