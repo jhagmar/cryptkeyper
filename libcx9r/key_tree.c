@@ -21,6 +21,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct cx9r_ktf {
+	char *name;
+	char *value;
+	cx9r_kt_field *next;
+};
+
+struct cx9r_kte {
+	char *name;
+	cx9r_kt_field *fields;
+	cx9r_kt_entry *next;
+};
+
+struct cx9r_ktg {
+	char *name;
+	cx9r_kt_group *parent;
+	cx9r_kt_group *children;
+	cx9r_kt_group *next;
+	cx9r_kt_entry *entries;
+};
+
+struct cx9r_kt {
+	cx9r_kt_group root;
+};
+
 cx9r_key_tree *cx9r_key_tree_create() {
 	cx9r_key_tree *kt;
 
@@ -271,4 +295,58 @@ char const *cx9r_kt_field_set_zvalue(cx9r_kt_field *ktf, char const *value) {
 
 cx9r_kt_field *cx9r_kt_field_get_next(cx9r_kt_field *ktf) {
 	return ktf->next;
+}
+
+static void print_spaces(int n) {
+	while (n--) {
+		putchar(' ');
+	}
+}
+
+static char const empty_string[] = "";
+
+static void dump_field(cx9r_kt_field *f, int depth) {
+	print_spaces(depth);
+	printf("field: ");
+	if (f->name != NULL) printf("%s", f->name);
+	printf(" - ");
+	if (f->value != NULL) printf("%s", f->value);
+	printf("\n");
+	if (f->next != NULL) {
+		dump_field(f->next, depth);
+	}
+}
+
+static void dump_entry(cx9r_kt_entry *e, int depth)	{
+	print_spaces(depth);
+	printf("entry: ");
+	if (e->name != NULL) printf("%s", e->name);
+	printf("\n");
+	if (e->fields != NULL) {
+		dump_field(e->fields, depth + 1);
+	}
+	if (e->next != NULL) {
+		dump_entry(e->next, depth);
+	}
+}
+
+static void dump_group(cx9r_kt_group *g, int depth) {
+	print_spaces(depth);
+	printf("group: ");
+	if (g->name != NULL) printf("%s", g->name);
+	printf("\n");
+	if (g->entries != NULL) {
+		dump_entry(g->entries, depth + 1);
+	}
+	if (g->next != NULL) {
+		dump_group(g->next, depth);
+	}
+	if (g->children != NULL) {
+		dump_group(g->children, depth + 1);
+	}
+}
+
+void cx9r_dump_tree(cx9r_key_tree *kt) {
+	printf("top\n");
+	dump_group(&kt->root, 1);
 }

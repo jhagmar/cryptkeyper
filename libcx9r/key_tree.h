@@ -24,33 +24,11 @@
 
 typedef struct cx9r_ktf cx9r_kt_field;
 
-struct cx9r_ktf {
-	char *name;
-	char *value;
-	cx9r_kt_field *next;
-};
-
 typedef struct cx9r_kte cx9r_kt_entry;
-
-struct cx9r_kte {
-	char *name;
-	cx9r_kt_field *fields;
-	cx9r_kt_entry *next;
-};
 
 typedef struct cx9r_ktg cx9r_kt_group;
 
-struct cx9r_ktg {
-	char *name;
-	cx9r_kt_group *parent;
-	cx9r_kt_group *children;
-	cx9r_kt_group *next;
-	cx9r_kt_entry *entries;
-};
-
-typedef struct {
-	cx9r_kt_group root;
-} cx9r_key_tree;
+typedef struct cx9r_kt cx9r_key_tree;
 
 cx9r_key_tree *cx9r_key_tree_create();
 cx9r_kt_group *cx9r_key_tree_get_root(cx9r_key_tree *kt);
@@ -80,5 +58,7 @@ char const *cx9r_kt_field_get_value(cx9r_kt_field *ktf);
 char const *cx9r_kt_field_set_value(cx9r_kt_field *ktf, char const *value, size_t length);
 char const *cx9r_kt_field_set_zvalue(cx9r_kt_field *ktf, char const *value);
 cx9r_kt_field *cx9r_kt_field_get_next(cx9r_kt_field *ktf);
+
+void cx9r_dump_tree(cx9r_key_tree *kt);
 
 #endif

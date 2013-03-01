@@ -425,15 +425,28 @@ bail:
 
 }
 
+enum parse_tag_enum {
+	START,
+	TOP,
+	ROOT,
+	GROUP,
+	ENTRY,
+	NAME,
+	STRING,
+	KEY,
+	VALUE,
+	OTHER,
+	END
+};
+
+typedef enum parse_tag_enum parse_tag;
+
 enum parse_state_enum {
-	IN_TOP,
-	IN_ROOT,
-	IN_GROUP,
-	IN_ENTRY,
-	IN_HISTORY,
-	IN_FIELD,
-	IN_KEY,
-	IN_VALUE
+	UNKNOWN,
+	GROUP_NAME,
+	ENTRY_KEY,
+	ENTRY_NAME,
+	ENTRY_VALUE
 };
 
 typedef enum parse_state_enum parse_state;
@@ -441,8 +454,7 @@ typedef enum parse_state_enum parse_state;
 typedef struct parse_data_struct parse_data;
 
 struct parse_data_struct {
-	parse_state state;
-	void *kt_element;
+	parse_tag state;
 	parse_data *prev;
 	parse_data *next;
 };
@@ -452,6 +464,13 @@ typedef struct user_data_struct user_data;
 struct user_data_struct {
 	parse_data *stack_top;
 	XML_Parser parser;
+	parse_state state;
+	cx9r_key_tree *key_tree;
+	cx9r_kt_group *current_group;
+	cx9r_kt_entry *current_entry;
+	cx9r_kt_field *current_field;
+	char *char_data_buf;
+	int char_data_len;
 };
 
 // not a pure pop - pops all elements above data
@@ -477,46 +496,186 @@ static parse_data *parse_data_push(parse_data *top) {
 	return pd;
 }
 
-static char const root_tag[] = "Root";
-static char const entry_tag[] = "Entry";
+#define N_TAGS 8
+static char const *tags[N_TAGS] = {"KeePassFile", "Root", "Group", "Entry",
+		"Name", "String", "Key", "Value"};
+static parse_tag const states[N_TAGS] = {TOP, ROOT, GROUP, ENTRY, NAME,
+		STRING, KEY, VALUE};
+static parse_tag const root_condition[] = {GROUP, ROOT, TOP, END};
+static parse_tag const root_name_condition[] = {NAME, GROUP, ROOT, TOP, END};
+static parse_tag const group_condition[] = {GROUP, END};
+static parse_tag const subgroup_condition[] = {GROUP, GROUP, END};
+static parse_tag const subgroup_name_condition[] = {NAME, GROUP, GROUP, END};
+static parse_tag const entry_condition[] = {ENTRY, GROUP, END};
+static parse_tag const entry_key_condition[] = {KEY, STRING, ENTRY, GROUP, END};
+static parse_tag const entry_value_condition[] = {VALUE, STRING, ENTRY, GROUP, END};
+
+static char const *entry_name_tag = "Title";
+
+void new_state(user_data *ud, XML_Char const *name) {
+	int i;
+
+	if (ud->stack_top == NULL) return;
+	ud->stack_top = parse_data_push(ud->stack_top);
+	if (ud->stack_top == NULL) return;
+	for (i = 0; i < N_TAGS; i++) {
+		if (strcmp(name, tags[i]) == 0) {
+			ud->stack_top->state = states[i];
+			return;
+		}
+	}
+	ud->stack_top->state = OTHER;
+}
+
+int check_state_condition(parse_tag const *condition, parse_data const *stack_top) {
+	while (*condition != END) {
+		if (stack_top == NULL) return 0;
+		if (*condition != stack_top->state) return 0;
+		stack_top = stack_top->prev;
+		condition++;
+	}
+	return 1;
+}
 
 static void start_element_handler(void *userData,
 		const XML_Char *name,
 		const XML_Char **atts) {
+
 	user_data *ud;
-
 	ud = (user_data*)userData;
-	if (ud->stack_top == NULL) return;
+	new_state(ud, name);
+	if (ud->stack_top == NULL )	goto bail;
 
-	if (strcmp(name, root_tag) == 0) {
-		ud->stack_top = parse_data_push(ud->stack_top);
-		if (ud->stack_top == NULL) {
-			XML_StopParser(ud->parser, XML_FALSE);
-			return;
+	if (check_state_condition(root_condition, ud->stack_top)) {
+		ud->current_group = cx9r_key_tree_get_root(ud->key_tree);
+	}
+	else if (check_state_condition(root_name_condition, ud->stack_top)) {
+		ud->state = GROUP_NAME;
+	}
+	else if (check_state_condition(subgroup_condition, ud->stack_top)) {
+		ud->current_group = cx9r_kt_group_add_child(ud->current_group);
+	}
+	else if (check_state_condition(subgroup_name_condition, ud->stack_top)) {
+		ud->state = GROUP_NAME;
+	}
+	else if (check_state_condition(entry_condition, ud->stack_top)) {
+		ud->current_entry = cx9r_kt_group_add_entry(ud->current_group);
+	}
+	else if (check_state_condition(entry_key_condition, ud->stack_top)) {
+		ud->state = ENTRY_KEY;
+	}
+	else if (check_state_condition(entry_value_condition, ud->stack_top)) {
+		if (ud->state != ENTRY_NAME) {
+			ud->state = ENTRY_VALUE;
 		}
-		ud->stack_top->state = IN_ROOT;
+	}
+
+	ud->char_data_len = 0;
+
+	return;
+
+bail:
+
+	ud->stack_top = NULL;
+	XML_StopParser(ud->parser, XML_FALSE);
+}
+
+static void buffered_character_data_handler(void *userData,
+		const XML_Char *s,
+		int len) {
+
+	user_data *ud;
+	ud = (user_data*)userData;
+	if (ud->stack_top == NULL )	return;
+
+	if (ud->state == GROUP_NAME) {
+		cx9r_kt_group_set_name(ud->current_group, s, len);
+	}
+	else if (ud->state == ENTRY_KEY) {
+		if (strncmp(s, entry_name_tag, len) == 0) {
+			ud->state = ENTRY_NAME;
+		}
+		else {
+			ud->current_field = cx9r_kt_entry_add_field(ud->current_entry);
+			cx9r_kt_field_set_name(ud->current_field, s, len);
+		}
+	}
+	else if (ud->state == ENTRY_NAME) {
+		cx9r_kt_entry_set_name(ud->current_entry, s, len);
+	}
+	else if (ud->state == ENTRY_VALUE) {
+		cx9r_kt_field_set_value(ud->current_field, s, len);
 	}
 
 }
 
 static void end_element_handler(void *userData,
 		const XML_Char *name) {
+
 	user_data *ud;
-
 	ud = (user_data*)userData;
-	if (ud->stack_top == NULL) return;
+	if (ud->stack_top == NULL )	return;
 
-	if (strcmp(name, root_tag) == 0) {
-		ud->stack_top = parse_data_pop(ud->stack_top);
+	if (ud->char_data_buf != NULL) {
+		buffered_character_data_handler(ud, ud->char_data_buf, ud->char_data_len);
+		free(ud->char_data_buf);
+		ud->char_data_buf = NULL;
+		ud->char_data_len = -1;
 	}
+
+	if (check_state_condition(group_condition, ud->stack_top)) {
+		ud->current_group = cx9r_kt_group_get_parent(ud->current_group);
+	}
+
+	if ((check_state_condition(entry_key_condition, ud->stack_top))
+			&& (ud->state == ENTRY_NAME)) {
+
+	}
+	else {
+		ud->state = UNKNOWN;
+	}
+
+	ud->stack_top = parse_data_pop(ud->stack_top);
+
+
 }
 
 static void character_data_handler(void *userData,
 		const XML_Char *s,
 		int len) {
 
-	if (len == 3000) {
-		printf("Len!\n");
+	user_data *ud;
+	char *t;
+	size_t t_len;
+
+	ud = (user_data*)userData;
+	if (ud->stack_top == NULL )	return;
+	if (ud->char_data_len < 0) return;
+
+	if (ud->char_data_buf == NULL) {
+		ud->char_data_buf = malloc(len);
+		if (ud->char_data_buf == NULL) {
+			ud->stack_top = NULL;
+			return;
+		}
+		memcpy(ud->char_data_buf, s, len);
+		ud->char_data_len = len;
+	}
+	else {
+		t_len = ud->char_data_len + len;
+		t = malloc(t_len);
+		if (t == NULL) {
+			free(ud->char_data_buf);
+			ud->char_data_buf = NULL;
+			ud->char_data_len = 0;
+			ud->stack_top = NULL;
+			return;
+		}
+		memcpy(t, ud->char_data_buf, ud->char_data_len);
+		memcpy(t + ud->char_data_len, s, len);
+		free(ud->char_data_buf);
+		ud->char_data_buf = t;
+		ud->char_data_len = t_len;
 	}
 
 }
@@ -527,6 +686,7 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	size_t n;
 	uint8_t buf[1027];
 	parse_data *parse_stack;
+	cx9r_key_tree *kt;
 	user_data ud;
 
 	CHECK(((parser = XML_ParserCreate(NULL)) != NULL), err,
@@ -535,9 +695,19 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	CHECK(((parse_stack = parse_data_push(NULL)) != NULL), err,
 			CX9R_MEM_ALLOC_ERR, dealloc_parser);
 
+	CHECK(((kt = cx9r_key_tree_create()) != NULL), err,
+			CX9R_MEM_ALLOC_ERR, dealloc_key_tree);
+
 	ud.stack_top = parse_stack;
 	ud.parser = parser;
-	parse_stack->state = IN_TOP;
+	ud.state = UNKNOWN;
+	ud.key_tree = kt;
+	ud.current_group = NULL;
+	ud.current_entry = NULL;
+	ud.current_field = NULL;
+	ud.char_data_buf = NULL;
+	ud.char_data_len = 0;
+	parse_stack->state = START;
 
 	XML_SetUserData(parser, &ud);
 
@@ -546,11 +716,16 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	XML_SetCharacterDataHandler(parser, character_data_handler);
 
 	while (!cx9r_seof(stream)) {
-		n = cx9r_sread(buf, 1, 1027, stream);
+		n = cx9r_sread(buf, 1, 1028, stream);
 		CHECK((XML_Parse(parser, buf, n, 0) == XML_STATUS_OK), err,
-				CX9R_PARSE_ERR, dealloc_stack);
+				CX9R_PARSE_ERR, dealloc_key_tree);
 	}
 	XML_Parse(parser, buf, 0, 1);
+	cx9r_dump_tree(kt);
+
+dealloc_key_tree:
+
+	cx9r_key_tree_free(kt);
 
 dealloc_stack:
 
