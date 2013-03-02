@@ -51,7 +51,66 @@ static uint8_t const dec[80] = { 0x3E, 0xFF, 0xFF, 0xFF, 0x3F, 0x34, 0x35, 0x36,
 #define PREPARE_INPUT(x, y) ((x = y - FIRST_VALID_ASCII) <= LAST_VALID_ASCII)
 #define DECODE(x) ((x = dec[x]) != INVALID_ASCII)
 
-size_t base64_decode(void *out, char const *in) {
+size_t base64_decode(void *out, char const *in, size_t length) {
+	uint8_t *o = (uint8_t*)out;
+	uint8_t *o_orig = o;
+	uint8_t buf[BASE64_BLOCK_LENGTH];
+	size_t const mask = ~((size_t)3);
+
+	length &= mask;
+
+	// continue until end of string
+	while (length) {
+		length -= BASE64_BLOCK_LENGTH;
+
+		// first validation of input
+		if (!(PREPARE_INPUT(buf[0], in[0]) && PREPARE_INPUT(buf[1], in[1])
+				&& PREPARE_INPUT(buf[2], in[2]) && PREPARE_INPUT(buf[3], in[3]))) {
+			return FORMAT_ERROR;
+		}
+
+		// validate and decode
+		if (in[3] != TERMINATOR) {
+			// we have "xxxx"
+			if (!(DECODE(buf[0]) && DECODE(buf[1]) && DECODE(buf[2])
+					&& DECODE(buf[3]))) {
+				return FORMAT_ERROR;
+			}
+			o[0] = ((buf[0] << 2) | (buf[1] >> 4));
+			o[1] = ((buf[1] << 4) | (buf[2] >> 2));
+			o[2] = ((buf[2] << 6) | (buf[3]));
+			in += BASE64_BLOCK_LENGTH;
+			o += BINARY_BLOCK_LENGTH;
+		} else {
+			// check that this is the last char
+			if (length) {
+				return FORMAT_ERROR;
+			}
+			if (in[2] == TERMINATOR) {
+				// we have "xx=="
+				if (!(DECODE(buf[0]) && DECODE(buf[1]))) {
+					return FORMAT_ERROR;
+				}
+				o[0] = ((buf[0] << 2) | (buf[1] >> 4));
+				o += BINARY_BLOCK_LENGTH - 2;
+				break;
+			} else {
+				// we have "xxx="
+				if (!(DECODE(buf[0]) && DECODE(buf[1]) && DECODE(buf[2]))) {
+					return FORMAT_ERROR;
+				}
+				o[0] = ((buf[0] << 2) | (buf[1] >> 4));
+				o[1] = ((buf[1] << 4) | (buf[2] >> 2));
+				o += BINARY_BLOCK_LENGTH - 1;
+				break;
+			}
+		}
+	}
+
+	return o - o_orig;
+}
+
+size_t base64_decode_string(void *out, char const *in) {
 
 	uint8_t *o = (uint8_t*)out;
 	uint8_t *o_orig = o;
@@ -106,3 +165,4 @@ size_t base64_decode(void *out, char const *in) {
 
 	return o - o_orig;
 }
+

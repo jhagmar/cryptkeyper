@@ -20,6 +20,7 @@
 #include "key_tree.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 struct cx9r_ktf {
 	char *name;
@@ -130,7 +131,7 @@ char const *cx9r_kt_group_set_name(cx9r_kt_group *ktg, char const *name, size_t 
 		return NULL;
 	}
 	strncpy(ktg->name, name, length);
-	ktg->name[length] = NULL;
+	ktg->name[length] = 0;
 	return ktg->name;
 }
 
@@ -263,7 +264,7 @@ char const *cx9r_kt_field_set_name(cx9r_kt_field *ktf, char const *name, size_t 
 		return NULL;
 	}
 	strncpy(ktf->name, name, length);
-	ktf->name[length] = NULL;
+	ktf->name[length] = 0;
 	return ktf->name;
 }
 
@@ -285,7 +286,7 @@ char const *cx9r_kt_field_set_value(cx9r_kt_field *ktf, char const *value, size_
 		return NULL;
 	}
 	strncpy(ktf->value, value, length);
-	ktf->value[length] = NULL;
+	ktf->value[length] = 0;
 	return ktf->value;
 }
 

@@ -27,7 +27,7 @@ static int check_test_vector(char *out, char const *in, char const *correct_out)
 
 	printf("Test vector: %s\n", in);
 	printf("Expected response: \"%s\"\n", correct_out);
-	n = base64_decode(out, in);
+	n = base64_decode_string(out, in);
 	if (n < 0) {
 		printf("Decoding error\n");
 		return 1;

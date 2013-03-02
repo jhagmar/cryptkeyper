@@ -21,6 +21,8 @@
 #include <stream.h>
 #include "sha256.h"
 #include "aes256.h"
+#include "base64.h"
+#include "salsa20.h"
 #include "key_tree.h"
 #include "util.h"
 #include <string.h>
@@ -75,6 +77,7 @@ typedef struct {
 	uint8_t *transform_seed;
 	uint64_t n_transform_rounds;
 	uint8_t *iv;
+	uint16_t protected_stream_key_length;
 	uint8_t *protected_stream_key;
 	uint8_t *stream_start_bytes;
 	uint32_t inner_random_stream_id;
@@ -270,6 +273,7 @@ static cx9r_err kdbx_read_header(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 			break;
 		case ID_PROTECTED_STREAM_KEY:
 			// KeePass writes 32 bytes, but does not check the length on reading
+			ctx->protected_stream_key_length = size;
 			handle_field_wo_size(&ctx->protected_stream_key, data);
 			break;
 		case ID_STREAM_START_BYTES:
@@ -471,6 +475,8 @@ struct user_data_struct {
 	cx9r_kt_field *current_field;
 	char *char_data_buf;
 	int char_data_len;
+	cx9r_salsa20_ctx salsa20_ctx;
+	int obfuscated;
 };
 
 // not a pure pop - pops all elements above data
@@ -511,6 +517,8 @@ static parse_tag const entry_key_condition[] = {KEY, STRING, ENTRY, GROUP, END};
 static parse_tag const entry_value_condition[] = {VALUE, STRING, ENTRY, GROUP, END};
 
 static char const *entry_name_tag = "Title";
+static char const *protected_tag = "Protected";
+static char const *true_tag = "True";
 
 void new_state(user_data *ud, XML_Char const *name) {
 	int i;
@@ -541,6 +549,7 @@ static void start_element_handler(void *userData,
 		const XML_Char *name,
 		const XML_Char **atts) {
 
+	int i;
 	user_data *ud;
 	ud = (user_data*)userData;
 	new_state(ud, name);
@@ -572,6 +581,14 @@ static void start_element_handler(void *userData,
 
 	ud->char_data_len = 0;
 
+	ud->obfuscated = 0;
+	for (i = 0; atts[i] != NULL; i += 2) {
+		if ((strcmp(atts[i], protected_tag) == 0)
+				&& (strcmp(atts[i + 1], true_tag) == 0)) {
+			ud->obfuscated = 1;
+		}
+	}
+
 	return;
 
 bail:
@@ -581,12 +598,17 @@ bail:
 }
 
 static void buffered_character_data_handler(void *userData,
-		const XML_Char *s,
+		XML_Char *s,
 		int len) {
 
 	user_data *ud;
 	ud = (user_data*)userData;
 	if (ud->stack_top == NULL )	return;
+
+	if (ud->obfuscated){
+		len = base64_decode(s, s, len);
+		cx9r_salsa20_decrypt(&ud->salsa20_ctx, s, s, len);
+	}
 
 	if (ud->state == GROUP_NAME) {
 		cx9r_kt_group_set_name(ud->current_group, s, len);
@@ -688,6 +710,9 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	parse_data *parse_stack;
 	cx9r_key_tree *kt;
 	user_data ud;
+	uint8_t const salsa20_iv[] = {0xE8, 0x30, 0x09, 0x4B,
+			0x97, 0x20, 0x5D, 0x2A};
+	uint8_t salsa20_key[CX9R_SHA256_HASH_LENGTH];
 
 	CHECK(((parser = XML_ParserCreate(NULL)) != NULL), err,
 			CX9R_MEM_ALLOC_ERR, bail);
@@ -698,6 +723,9 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	CHECK(((kt = cx9r_key_tree_create()) != NULL), err,
 			CX9R_MEM_ALLOC_ERR, dealloc_key_tree);
 
+	cx9r_sha256_hash_buffer(salsa20_key, ctx->protected_stream_key,
+			ctx->protected_stream_key_length);
+
 	ud.stack_top = parse_stack;
 	ud.parser = parser;
 	ud.state = UNKNOWN;
@@ -707,6 +735,7 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	ud.current_field = NULL;
 	ud.char_data_buf = NULL;
 	ud.char_data_len = 0;
+	cx9r_salsa20_256_init(&ud.salsa20_ctx, salsa20_key, salsa20_iv);
 	parse_stack->state = START;
 
 	XML_SetUserData(parser, &ud);
