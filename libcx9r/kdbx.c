@@ -429,8 +429,9 @@ bail:
 
 }
 
+// recognized xml tags
 enum parse_tag_enum {
-	START,
+	START,	// virtual tag - xml file root
 	TOP,
 	ROOT,
 	GROUP,
@@ -440,23 +441,25 @@ enum parse_tag_enum {
 	KEY,
 	VALUE,
 	OTHER,
-	END
+	END		// virtual tag - used as end marker when detecting tag hierarchy
 };
 
 typedef enum parse_tag_enum parse_tag;
 
+// states of the xml parser
 enum parse_state_enum {
 	UNKNOWN,
 	GROUP_NAME,
 	ENTRY_KEY,
-	ENTRY_NAME,
-	ENTRY_VALUE
+	FIELD_NAME,
+	FIELD_VALUE
 };
 
 typedef enum parse_state_enum parse_state;
 
 typedef struct parse_data_struct parse_data;
 
+//linked list parse stack item
 struct parse_data_struct {
 	parse_tag state;
 	parse_data *prev;
@@ -465,27 +468,30 @@ struct parse_data_struct {
 
 typedef struct user_data_struct user_data;
 
+// context used for the xml parser
 struct user_data_struct {
-	parse_data *stack_top;
-	XML_Parser parser;
-	parse_state state;
+	parse_data *stack_top;			// top of tag stack
+	XML_Parser parser;				// xml parser context
+	parse_state state;				// current parser state
 	cx9r_key_tree *key_tree;
 	cx9r_kt_group *current_group;
 	cx9r_kt_entry *current_entry;
 	cx9r_kt_field *current_field;
-	char *char_data_buf;
-	int char_data_len;
+	char *char_data_buf;			// for accumulating character data
+	int char_data_len;				// length of accumulated character data
 	cx9r_salsa20_ctx salsa20_ctx;
-	int obfuscated;
+	int obfuscated;					// whether field is obfuscated
 };
 
 // not a pure pop - pops all elements above data
 static parse_data *parse_data_pop(parse_data *data) {
 	parse_data *prev;
-	if (data->next != NULL) {
-		parse_data_pop(data->next);
-	}
+	if (data == NULL) return NULL;
+	parse_data_pop(data->next);
 	prev = data->prev;
+	if (prev != NULL) {
+		prev->next = NULL;
+	}
 	free(data);
 	return prev;
 }
@@ -497,16 +503,20 @@ static parse_data *parse_data_push(parse_data *top) {
 	pd = malloc(sizeof(parse_data));
 	if (pd == NULL) return NULL;
 
+	if (top != NULL) {
+		top->next = pd;
+	}
 	pd->prev = top;
 	pd->next = NULL;
 	return pd;
 }
 
 #define N_TAGS 8
-static char const *tags[N_TAGS] = {"KeePassFile", "Root", "Group", "Entry",
+static char const *string_tags[N_TAGS] = {"KeePassFile", "Root", "Group", "Entry",
 		"Name", "String", "Key", "Value"};
-static parse_tag const states[N_TAGS] = {TOP, ROOT, GROUP, ENTRY, NAME,
+static parse_tag const tags[N_TAGS] = {TOP, ROOT, GROUP, ENTRY, NAME,
 		STRING, KEY, VALUE};
+// conditions for recognizing certain contexts in the xml
 static parse_tag const root_condition[] = {GROUP, ROOT, TOP, END};
 static parse_tag const root_name_condition[] = {NAME, GROUP, ROOT, TOP, END};
 static parse_tag const group_condition[] = {GROUP, END};
@@ -520,6 +530,7 @@ static char const *entry_name_tag = "Title";
 static char const *protected_tag = "Protected";
 static char const *true_tag = "True";
 
+// check if an xml tag is recognized, and push its corresponding enum value on the stack
 void new_state(user_data *ud, XML_Char const *name) {
 	int i;
 
@@ -527,14 +538,15 @@ void new_state(user_data *ud, XML_Char const *name) {
 	ud->stack_top = parse_data_push(ud->stack_top);
 	if (ud->stack_top == NULL) return;
 	for (i = 0; i < N_TAGS; i++) {
-		if (strcmp(name, tags[i]) == 0) {
-			ud->stack_top->state = states[i];
+		if (strcmp(name, string_tags[i]) == 0) {
+			ud->stack_top->state = tags[i];
 			return;
 		}
 	}
 	ud->stack_top->state = OTHER;
 }
 
+// check if a certain context condition is fulfilled
 int check_state_condition(parse_tag const *condition, parse_data const *stack_top) {
 	while (*condition != END) {
 		if (stack_top == NULL) return 0;
@@ -553,7 +565,7 @@ static void start_element_handler(void *userData,
 	user_data *ud;
 	ud = (user_data*)userData;
 	new_state(ud, name);
-	if (ud->stack_top == NULL )	goto bail;
+	if (ud->stack_top == NULL)	goto bail;
 
 	if (check_state_condition(root_condition, ud->stack_top)) {
 		ud->current_group = cx9r_key_tree_get_root(ud->key_tree);
@@ -574,8 +586,8 @@ static void start_element_handler(void *userData,
 		ud->state = ENTRY_KEY;
 	}
 	else if (check_state_condition(entry_value_condition, ud->stack_top)) {
-		if (ud->state != ENTRY_NAME) {
-			ud->state = ENTRY_VALUE;
+		if (ud->state != FIELD_NAME) {
+			ud->state = FIELD_VALUE;
 		}
 	}
 
@@ -615,17 +627,17 @@ static void buffered_character_data_handler(void *userData,
 	}
 	else if (ud->state == ENTRY_KEY) {
 		if (strncmp(s, entry_name_tag, len) == 0) {
-			ud->state = ENTRY_NAME;
+			ud->state = FIELD_NAME;
 		}
 		else {
 			ud->current_field = cx9r_kt_entry_add_field(ud->current_entry);
 			cx9r_kt_field_set_name(ud->current_field, s, len);
 		}
 	}
-	else if (ud->state == ENTRY_NAME) {
+	else if (ud->state == FIELD_NAME) {
 		cx9r_kt_entry_set_name(ud->current_entry, s, len);
 	}
-	else if (ud->state == ENTRY_VALUE) {
+	else if (ud->state == FIELD_VALUE) {
 		cx9r_kt_field_set_value(ud->current_field, s, len);
 	}
 
@@ -650,7 +662,7 @@ static void end_element_handler(void *userData,
 	}
 
 	if ((check_state_condition(entry_key_condition, ud->stack_top))
-			&& (ud->state == ENTRY_NAME)) {
+			&& (ud->state == FIELD_NAME)) {
 
 	}
 	else {

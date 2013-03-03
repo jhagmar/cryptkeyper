@@ -22,7 +22,6 @@
 
 #include <stdlib.h>
 
-size_t base64_decode_string(void *out, char const *in);
 size_t base64_decode(void *out, char const *in, size_t length);
 
 #endif
