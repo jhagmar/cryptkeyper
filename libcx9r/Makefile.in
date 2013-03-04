@@ -51,10 +51,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-check_PROGRAMS = base64_test$(EXEEXT) salsa20_test$(EXEEXT) \
-	key_tree_test$(EXEEXT)
+check_PROGRAMS = buf_file_stream_test$(EXEEXT) base64_test$(EXEEXT) \
+	salsa20_test$(EXEEXT) key_tree_test$(EXEEXT)
 TESTS = base64_test$(EXEEXT) salsa20_test$(EXEEXT) \
-	key_tree_test$(EXEEXT)
+	key_tree_test$(EXEEXT) buf_file_stream_test$(EXEEXT)
 subdir = libcx9r
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -110,6 +110,14 @@ libcx9r_la_OBJECTS = $(am_libcx9r_la_OBJECTS)
 am_base64_test_OBJECTS = base64_test.$(OBJEXT) base64.$(OBJEXT)
 base64_test_OBJECTS = $(am_base64_test_OBJECTS)
 base64_test_LDADD = $(LDADD)
+am_buf_file_stream_test_OBJECTS =  \
+	buf_file_stream_test-buf_file_stream_test.$(OBJEXT) \
+	buf_file_stream_test-stream.$(OBJEXT) \
+	buf_file_stream_test-sha256.$(OBJEXT) \
+	buf_file_stream_test-util.$(OBJEXT) \
+	buf_file_stream_test-aes256.$(OBJEXT)
+buf_file_stream_test_OBJECTS = $(am_buf_file_stream_test_OBJECTS)
+buf_file_stream_test_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_key_tree_test_OBJECTS = key_tree_test.$(OBJEXT) key_tree.$(OBJEXT)
 key_tree_test_OBJECTS = $(am_key_tree_test_OBJECTS)
 key_tree_test_LDADD = $(LDADD)
@@ -130,9 +138,11 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(libcx9r_la_SOURCES) $(base64_test_SOURCES) \
-	$(key_tree_test_SOURCES) $(salsa20_test_SOURCES)
+	$(buf_file_stream_test_SOURCES) $(key_tree_test_SOURCES) \
+	$(salsa20_test_SOURCES)
 DIST_SOURCES = $(libcx9r_la_SOURCES) $(base64_test_SOURCES) \
-	$(key_tree_test_SOURCES) $(salsa20_test_SOURCES)
+	$(buf_file_stream_test_SOURCES) $(key_tree_test_SOURCES) \
+	$(salsa20_test_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -265,12 +275,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libcx9r.la
-libcx9r_la_SOURCES = kdbx.c sha256.h sha256.c aes256.h aes256.c stream.c util.h util.c base64.c base64.h salsa20.c key_tree.c key_tree.h
+libcx9r_la_SOURCES = kdbx.c sha256.h sha256.c aes256.h aes256.c stream.h stream.c util.h util.c base64.c base64.h salsa20.c key_tree.c key_tree.h
 libcx9r_la_CPPFLAGS = -I$(top_srcdir)/include $(GCRYPT_CFLAGS) $(EXPAT_CFLAGS)
 libcx9r_la_LIBADD = $(GCRYPT_LIBS) $(EXPAT_LIBS)
 base64_test_SOURCES = base64_test.c base64.c base64.h
 salsa20_test_SOURCES = salsa20_test.c salsa20.c salsa20.h
 key_tree_test_SOURCES = key_tree_test.c key_tree.c key_tree.h
+buf_file_stream_test_SOURCES = buf_file_stream_test.c stream.c stream.h sha256.c sha256.h util.c util.h aes256.c aes256.h
+buf_file_stream_test_CPPFLAGS = -I$(top_srcdir)/include -DTESTFILE=\"$(srcdir)/testfile\" $(GCRYPT_CFLAGS)
+buf_file_stream_test_LDADD = $(GCRYPT_LIBS)
 all: all-am
 
 .SUFFIXES:
@@ -351,6 +364,9 @@ clean-checkPROGRAMS:
 base64_test$(EXEEXT): $(base64_test_OBJECTS) $(base64_test_DEPENDENCIES) $(EXTRA_base64_test_DEPENDENCIES) 
 	@rm -f base64_test$(EXEEXT)
 	$(LINK) $(base64_test_OBJECTS) $(base64_test_LDADD) $(LIBS)
+buf_file_stream_test$(EXEEXT): $(buf_file_stream_test_OBJECTS) $(buf_file_stream_test_DEPENDENCIES) $(EXTRA_buf_file_stream_test_DEPENDENCIES) 
+	@rm -f buf_file_stream_test$(EXEEXT)
+	$(LINK) $(buf_file_stream_test_OBJECTS) $(buf_file_stream_test_LDADD) $(LIBS)
 key_tree_test$(EXEEXT): $(key_tree_test_OBJECTS) $(key_tree_test_DEPENDENCIES) $(EXTRA_key_tree_test_DEPENDENCIES) 
 	@rm -f key_tree_test$(EXEEXT)
 	$(LINK) $(key_tree_test_OBJECTS) $(key_tree_test_LDADD) $(LIBS)
@@ -366,6 +382,11 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/base64.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/base64_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/buf_file_stream_test-aes256.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/buf_file_stream_test-sha256.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/buf_file_stream_test-stream.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/buf_file_stream_test-util.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/key_tree.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/key_tree_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcx9r_la-aes256.Plo@am__quote@
@@ -455,6 +476,76 @@ libcx9r_la-key_tree.lo: key_tree.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='key_tree.c' object='libcx9r_la-key_tree.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libcx9r_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libcx9r_la-key_tree.lo `test -f 'key_tree.c' || echo '$(srcdir)/'`key_tree.c
+
+buf_file_stream_test-buf_file_stream_test.o: buf_file_stream_test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-buf_file_stream_test.o -MD -MP -MF $(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Tpo -c -o buf_file_stream_test-buf_file_stream_test.o `test -f 'buf_file_stream_test.c' || echo '$(srcdir)/'`buf_file_stream_test.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Tpo $(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='buf_file_stream_test.c' object='buf_file_stream_test-buf_file_stream_test.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-buf_file_stream_test.o `test -f 'buf_file_stream_test.c' || echo '$(srcdir)/'`buf_file_stream_test.c
+
+buf_file_stream_test-buf_file_stream_test.obj: buf_file_stream_test.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-buf_file_stream_test.obj -MD -MP -MF $(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Tpo -c -o buf_file_stream_test-buf_file_stream_test.obj `if test -f 'buf_file_stream_test.c'; then $(CYGPATH_W) 'buf_file_stream_test.c'; else $(CYGPATH_W) '$(srcdir)/buf_file_stream_test.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Tpo $(DEPDIR)/buf_file_stream_test-buf_file_stream_test.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='buf_file_stream_test.c' object='buf_file_stream_test-buf_file_stream_test.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-buf_file_stream_test.obj `if test -f 'buf_file_stream_test.c'; then $(CYGPATH_W) 'buf_file_stream_test.c'; else $(CYGPATH_W) '$(srcdir)/buf_file_stream_test.c'; fi`
+
+buf_file_stream_test-stream.o: stream.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-stream.o -MD -MP -MF $(DEPDIR)/buf_file_stream_test-stream.Tpo -c -o buf_file_stream_test-stream.o `test -f 'stream.c' || echo '$(srcdir)/'`stream.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-stream.Tpo $(DEPDIR)/buf_file_stream_test-stream.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='stream.c' object='buf_file_stream_test-stream.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-stream.o `test -f 'stream.c' || echo '$(srcdir)/'`stream.c
+
+buf_file_stream_test-stream.obj: stream.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-stream.obj -MD -MP -MF $(DEPDIR)/buf_file_stream_test-stream.Tpo -c -o buf_file_stream_test-stream.obj `if test -f 'stream.c'; then $(CYGPATH_W) 'stream.c'; else $(CYGPATH_W) '$(srcdir)/stream.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-stream.Tpo $(DEPDIR)/buf_file_stream_test-stream.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='stream.c' object='buf_file_stream_test-stream.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-stream.obj `if test -f 'stream.c'; then $(CYGPATH_W) 'stream.c'; else $(CYGPATH_W) '$(srcdir)/stream.c'; fi`
+
+buf_file_stream_test-sha256.o: sha256.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-sha256.o -MD -MP -MF $(DEPDIR)/buf_file_stream_test-sha256.Tpo -c -o buf_file_stream_test-sha256.o `test -f 'sha256.c' || echo '$(srcdir)/'`sha256.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-sha256.Tpo $(DEPDIR)/buf_file_stream_test-sha256.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sha256.c' object='buf_file_stream_test-sha256.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-sha256.o `test -f 'sha256.c' || echo '$(srcdir)/'`sha256.c
+
+buf_file_stream_test-sha256.obj: sha256.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-sha256.obj -MD -MP -MF $(DEPDIR)/buf_file_stream_test-sha256.Tpo -c -o buf_file_stream_test-sha256.obj `if test -f 'sha256.c'; then $(CYGPATH_W) 'sha256.c'; else $(CYGPATH_W) '$(srcdir)/sha256.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-sha256.Tpo $(DEPDIR)/buf_file_stream_test-sha256.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sha256.c' object='buf_file_stream_test-sha256.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-sha256.obj `if test -f 'sha256.c'; then $(CYGPATH_W) 'sha256.c'; else $(CYGPATH_W) '$(srcdir)/sha256.c'; fi`
+
+buf_file_stream_test-util.o: util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-util.o -MD -MP -MF $(DEPDIR)/buf_file_stream_test-util.Tpo -c -o buf_file_stream_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-util.Tpo $(DEPDIR)/buf_file_stream_test-util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='util.c' object='buf_file_stream_test-util.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-util.o `test -f 'util.c' || echo '$(srcdir)/'`util.c
+
+buf_file_stream_test-util.obj: util.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-util.obj -MD -MP -MF $(DEPDIR)/buf_file_stream_test-util.Tpo -c -o buf_file_stream_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-util.Tpo $(DEPDIR)/buf_file_stream_test-util.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='util.c' object='buf_file_stream_test-util.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-util.obj `if test -f 'util.c'; then $(CYGPATH_W) 'util.c'; else $(CYGPATH_W) '$(srcdir)/util.c'; fi`
+
+buf_file_stream_test-aes256.o: aes256.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-aes256.o -MD -MP -MF $(DEPDIR)/buf_file_stream_test-aes256.Tpo -c -o buf_file_stream_test-aes256.o `test -f 'aes256.c' || echo '$(srcdir)/'`aes256.c
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-aes256.Tpo $(DEPDIR)/buf_file_stream_test-aes256.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='aes256.c' object='buf_file_stream_test-aes256.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-aes256.o `test -f 'aes256.c' || echo '$(srcdir)/'`aes256.c
+
+buf_file_stream_test-aes256.obj: aes256.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT buf_file_stream_test-aes256.obj -MD -MP -MF $(DEPDIR)/buf_file_stream_test-aes256.Tpo -c -o buf_file_stream_test-aes256.obj `if test -f 'aes256.c'; then $(CYGPATH_W) 'aes256.c'; else $(CYGPATH_W) '$(srcdir)/aes256.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/buf_file_stream_test-aes256.Tpo $(DEPDIR)/buf_file_stream_test-aes256.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='aes256.c' object='buf_file_stream_test-aes256.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(buf_file_stream_test_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o buf_file_stream_test-aes256.obj `if test -f 'aes256.c'; then $(CYGPATH_W) 'aes256.c'; else $(CYGPATH_W) '$(srcdir)/aes256.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
