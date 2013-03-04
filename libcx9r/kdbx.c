@@ -440,7 +440,7 @@ enum parse_tag_enum {
 	STRING,
 	KEY,
 	VALUE,
-	OTHER,
+	OTHER,	// virtual tag - unrecognized tag
 	END		// virtual tag - used as end marker when detecting tag hierarchy
 };
 
@@ -450,9 +450,10 @@ typedef enum parse_tag_enum parse_tag;
 enum parse_state_enum {
 	UNKNOWN,
 	GROUP_NAME,
-	ENTRY_KEY,
-	FIELD_NAME,
-	FIELD_VALUE
+	FIELD_KEY,
+	ENTRY_NAME,
+	FIELD_VALUE,
+	ERROR
 };
 
 typedef enum parse_state_enum parse_state;
@@ -557,6 +558,7 @@ int check_state_condition(parse_tag const *condition, parse_data const *stack_to
 	return 1;
 }
 
+// handler for xml opening tags, e.g. <Root>
 static void start_element_handler(void *userData,
 		const XML_Char *name,
 		const XML_Char **atts) {
@@ -564,37 +566,53 @@ static void start_element_handler(void *userData,
 	int i;
 	user_data *ud;
 	ud = (user_data*)userData;
+	if (ud->state == ERROR) return;
+
 	new_state(ud, name);
-	if (ud->stack_top == NULL)	goto bail;
+	if (ud->stack_top == NULL) goto bail;
 
 	if (check_state_condition(root_condition, ud->stack_top)) {
+		// we are at the root, prepare current_group for adding subitems
 		ud->current_group = cx9r_key_tree_get_root(ud->key_tree);
+		if (ud->current_group == NULL) goto bail;
 	}
 	else if (check_state_condition(root_name_condition, ud->stack_top)) {
+		// we are at the name of the root group
 		ud->state = GROUP_NAME;
 	}
 	else if (check_state_condition(subgroup_condition, ud->stack_top)) {
+		// at subgroup - add a subgroup to current_group
 		ud->current_group = cx9r_kt_group_add_child(ud->current_group);
+		if (ud->current_group == NULL) goto bail;
 	}
 	else if (check_state_condition(subgroup_name_condition, ud->stack_top)) {
+		// we are at the name of a subgroup
 		ud->state = GROUP_NAME;
 	}
 	else if (check_state_condition(entry_condition, ud->stack_top)) {
+		// at entry - add an entry to the current group
 		ud->current_entry = cx9r_kt_group_add_entry(ud->current_group);
+		if (ud->current_entry == NULL) goto bail;
 	}
 	else if (check_state_condition(entry_key_condition, ud->stack_top)) {
-		ud->state = ENTRY_KEY;
+		// at field key - wait until we know if this is the
+		// title field to take appropriate action
+		ud->state = FIELD_KEY;
 	}
 	else if (check_state_condition(entry_value_condition, ud->stack_top)) {
-		if (ud->state != FIELD_NAME) {
+		// at field value if this is not the title field
+		if (ud->state != ENTRY_NAME) {
 			ud->state = FIELD_VALUE;
 		}
 	}
 
+	// signal that we are inside a tag and that character parsing should be performed
 	ud->char_data_len = 0;
 
+	// check if the character data that follows is "protected" by a stream cipher
 	ud->obfuscated = 0;
 	for (i = 0; atts[i] != NULL; i += 2) {
+		if (atts[i + 1] == NULL) goto bail;
 		if ((strcmp(atts[i], protected_tag) == 0)
 				&& (strcmp(atts[i + 1], true_tag) == 0)) {
 			ud->obfuscated = 1;
@@ -605,65 +623,90 @@ static void start_element_handler(void *userData,
 
 bail:
 
-	ud->stack_top = NULL;
+	ud->state = ERROR;
 	XML_StopParser(ud->parser, XML_FALSE);
 }
 
+// this is the character data handler for character data
+// that has been accumulated by calls to the character data
+// handler callback
 static void buffered_character_data_handler(void *userData,
 		XML_Char *s,
 		int len) {
 
 	user_data *ud;
 	ud = (user_data*)userData;
-	if (ud->stack_top == NULL )	return;
+	if (ud->state == ERROR) return;
 
 	if (ud->obfuscated){
 		len = base64_decode(s, s, len);
+		if (len < 0) goto bail;
 		cx9r_salsa20_decrypt(&ud->salsa20_ctx, s, s, len);
 	}
 
 	if (ud->state == GROUP_NAME) {
-		cx9r_kt_group_set_name(ud->current_group, s, len);
+		if (cx9r_kt_group_set_name(ud->current_group, s, len) == NULL)
+			goto bail;
 	}
-	else if (ud->state == ENTRY_KEY) {
+	else if (ud->state == FIELD_KEY) {
+		// check if this is the title field
+		// in that case we assign the field value directly
+		// to the entry name later
 		if (strncmp(s, entry_name_tag, len) == 0) {
-			ud->state = FIELD_NAME;
+			ud->state = ENTRY_NAME;
 		}
 		else {
 			ud->current_field = cx9r_kt_entry_add_field(ud->current_entry);
-			cx9r_kt_field_set_name(ud->current_field, s, len);
+			if (ud->current_field == NULL) goto bail;
+			if (cx9r_kt_field_set_name(ud->current_field, s, len) == NULL) goto bail;
 		}
 	}
-	else if (ud->state == FIELD_NAME) {
-		cx9r_kt_entry_set_name(ud->current_entry, s, len);
+	else if (ud->state == ENTRY_NAME) {
+		if (cx9r_kt_entry_set_name(ud->current_entry, s, len) == NULL) goto bail;
 	}
 	else if (ud->state == FIELD_VALUE) {
-		cx9r_kt_field_set_value(ud->current_field, s, len);
+		if (cx9r_kt_field_set_value(ud->current_field, s, len) == NULL) goto bail;
 	}
+
+	return;
+
+bail:
+
+	ud->state = ERROR;
+	XML_StopParser(ud->parser, XML_FALSE);
 
 }
 
+// callback handler for closing tags (e.g. </Root>)
 static void end_element_handler(void *userData,
 		const XML_Char *name) {
 
 	user_data *ud;
 	ud = (user_data*)userData;
-	if (ud->stack_top == NULL )	return;
+	if (ud->state == ERROR) return;
 
+	// if we have any character data that has been accumulated since the
+	// last opening tag, we handle it now
 	if (ud->char_data_buf != NULL) {
 		buffered_character_data_handler(ud, ud->char_data_buf, ud->char_data_len);
 		free(ud->char_data_buf);
 		ud->char_data_buf = NULL;
+		// signal that we should not process character data
 		ud->char_data_len = -1;
 	}
 
+	if (ud->stack_top == NULL) goto bail;
+
 	if (check_state_condition(group_condition, ud->stack_top)) {
+		// closing of group - go back to the parent
 		ud->current_group = cx9r_kt_group_get_parent(ud->current_group);
 	}
 
 	if ((check_state_condition(entry_key_condition, ud->stack_top))
-			&& (ud->state == FIELD_NAME)) {
-
+			&& (ud->state == ENTRY_NAME)) {
+		// if this is the title field, we do not reset
+		// the state, so that we know that this is the
+		// entry name when parsing the character data
 	}
 	else {
 		ud->state = UNKNOWN;
@@ -671,9 +714,17 @@ static void end_element_handler(void *userData,
 
 	ud->stack_top = parse_data_pop(ud->stack_top);
 
+	return;
+
+bail:
+
+	ud->state = ERROR;
+	XML_StopParser(ud->parser, XML_FALSE);
 
 }
 
+// character data callback - buffers character data
+// until a closing tag is encountered
 static void character_data_handler(void *userData,
 		const XML_Char *s,
 		int len) {
@@ -683,15 +734,12 @@ static void character_data_handler(void *userData,
 	size_t t_len;
 
 	ud = (user_data*)userData;
-	if (ud->stack_top == NULL )	return;
+	if (ud->state == ERROR)	return;
 	if (ud->char_data_len < 0) return;
 
 	if (ud->char_data_buf == NULL) {
 		ud->char_data_buf = malloc(len);
-		if (ud->char_data_buf == NULL) {
-			ud->stack_top = NULL;
-			return;
-		}
+		if (ud->char_data_buf == NULL) goto bail;
 		memcpy(ud->char_data_buf, s, len);
 		ud->char_data_len = len;
 	}
@@ -702,8 +750,7 @@ static void character_data_handler(void *userData,
 			free(ud->char_data_buf);
 			ud->char_data_buf = NULL;
 			ud->char_data_len = 0;
-			ud->stack_top = NULL;
-			return;
+			goto bail;
 		}
 		memcpy(t, ud->char_data_buf, ud->char_data_len);
 		memcpy(t + ud->char_data_len, s, len);
@@ -712,6 +759,12 @@ static void character_data_handler(void *userData,
 		ud->char_data_len = t_len;
 	}
 
+	return;
+
+bail:
+
+	ud->state = ERROR;
+	XML_StopParser(ud->parser, XML_FALSE);
 }
 
 static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
@@ -759,10 +812,20 @@ static cx9r_err parse_xml(cx9r_stream_t *stream, ckpr_ctx_impl *ctx) {
 	while (!cx9r_seof(stream)) {
 		n = cx9r_sread(buf, 1, 1028, stream);
 		CHECK((XML_Parse(parser, buf, n, 0) == XML_STATUS_OK), err,
-				CX9R_PARSE_ERR, dealloc_key_tree);
+				CX9R_PARSE_ERR, dealloc_user_data);
 	}
-	XML_Parse(parser, buf, 0, 1);
+	CHECK((XML_Parse(parser, buf, 0, 1) == XML_STATUS_OK), err,
+			CX9R_PARSE_ERR, dealloc_user_data);
+
+	CHECK((ud.state != ERROR), err, CX9R_PARSE_ERR, dealloc_user_data);
+
 	cx9r_dump_tree(kt);
+
+dealloc_user_data:
+
+	if (ud.char_data_buf != NULL) {
+		free (ud.char_data_buf);
+	}
 
 dealloc_key_tree:
 
@@ -840,7 +903,7 @@ cx9r_err cx9r_kdbx_read(FILE *f, char *passphrase) {
 //	}
 //
 //	fclose(o);
-	parse_xml(stream, ctx);
+	CHEQ(((err = parse_xml(stream, ctx)) == CX9R_OK), cleanup_ctx);
 
 cleanup_ctx:
 	ctx_free(ctx);
